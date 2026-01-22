@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class PlayerMovement : MonoBehaviour
 {
@@ -12,12 +13,16 @@ public class PlayerMovement : MonoBehaviour
     public KeyCode Sprint = KeyCode.LeftShift;
 
     [Header("Vida")]
-    [SerializeField] private int maxLife = 3;
-    private float currentLife;
+    // Altere os modificadores de acesso dos campos para 'public' para permitir acesso externo.
+    public int maxLife;
+    public float currentLife;
 
     [Header("Invencibilidade")]
     [SerializeField] private float invincibleTime = 1f;
     private bool isInvincible = false;
+    [Header("Portal")]
+    [SerializeField] private string Nomedoproximolevel;
+    [SerializeField] private LayerMask Portal;
 
     private Rigidbody2D body;
     private BoxCollider2D boxCollider;
@@ -32,6 +37,9 @@ public class PlayerMovement : MonoBehaviour
     // Posição de respawn
     private Vector3 respawnPosition = new Vector3(-0.15f, -3.77f, 0f);
 
+    // Adicione este campo para armazenar a referência ao PlayerLives
+    private PlayerLives playerLives;
+
     private void Awake()
     {
         body = GetComponent<Rigidbody2D>();
@@ -40,6 +48,9 @@ public class PlayerMovement : MonoBehaviour
 
         currentLife = maxLife;
         transform.position = respawnPosition;
+
+        // Inicialize a referência ao PlayerLives
+        playerLives = GetComponentInParent<PlayerLives>();
     }
 
     [System.Obsolete]
@@ -73,6 +84,11 @@ public class PlayerMovement : MonoBehaviour
             Jump();
 
         WallSlide();
+        if(inPortal())
+        {
+            Debug.Log("Entrou no portal");
+            SceneManager.LoadScene(Nomedoproximolevel);
+        }
     }
 
     [System.Obsolete]
@@ -152,6 +168,8 @@ public class PlayerMovement : MonoBehaviour
             Debug.Log($"Jogador recebeu {damage} de dano. Vida atual: {currentLife}");
             StartCoroutine(InvincibilityCoroutine());
         }
+        // Use a referência de instância para chamar HealthLogick
+       
     }
 
     [System.Obsolete]
@@ -170,4 +188,9 @@ public class PlayerMovement : MonoBehaviour
         yield return new WaitForSeconds(invincibleTime);
         isInvincible = false;
     }
+            private bool inPortal ()
+            {
+                Collider2D hit = Physics2D.OverlapBox(boxCollider.bounds.center, boxCollider.bounds.size, 0f, Portal);
+                return hit != null;
+            }
 }

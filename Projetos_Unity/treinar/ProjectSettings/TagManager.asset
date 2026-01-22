@@ -14,7 +14,7 @@ TagManager:
   - grounded
   - wall
   - Ground_player
-  - 
+  - Portal
   - 
   - 
   - 
@@ -40,6 +40,9 @@ TagManager:
   m_SortingLayers:
   - name: Default
     uniqueID: 0
+    locked: 0
+  - name: UI
+    uniqueID: 2586710609
     locked: 0
   m_RenderingLayers:
   - Default

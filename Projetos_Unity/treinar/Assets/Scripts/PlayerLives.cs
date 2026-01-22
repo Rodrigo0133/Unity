@@ -1,42 +1,48 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class PlayerLives : MonoBehaviour
 {
-    public int vidasAtuais;
-
-    public Image[] vidasUI; // Array das imagens
-
-    void Start()
+    public Image[] coracao;
+    public Sprite cheio;
+    public Sprite vazio;
+    private PlayerMovement Script_P;
+    void Awake()
     {
-        vidasAtuais = 3; // ou 3
-        
+        Script_P = GetComponent<PlayerMovement>();
     }
-
-
-    public void PerderVida()
+    private void Update()
     {
-        if (vidasAtuais > 0)
-        {
-            
-            AtualizarVidasUI();
-        }
+        HealthLogick(Script_P.currentLife,Script_P.maxLife);
 
-        if (vidasAtuais <= 0)
-        {
-            Debug.Log("Player morreu");
-            
-        }
     }
-
-    public void AtualizarVidasUI()
+    public void HealthLogick(float life,float Maxlife)
     {
-        for (int i = 0; i < vidasUI.Length; i++)
+        if(life > Maxlife)
+        {   
+            life = Maxlife;
+        }
+        for (int i = 0; i < coracao.Length; i++)
         {
-            if (i < vidasAtuais)
-                vidasUI[i].enabled = true; // mostra o coração
+            if(i < life)
+            {
+                coracao[i].sprite = cheio;
+            }
             else
-                vidasUI[i].enabled = false; // esconde
+            {
+                coracao[i].sprite = vazio;  
+            }
+            if (i < Maxlife)
+            {
+                coracao[i].enabled = true;
+            }
+            else
+            {
+                coracao[i].enabled = false;
+            }
         }
     }
+
+  
 }

@@ -62,7 +62,7 @@ public class InimigoIA_QuadradosVermelho : MonoBehaviour
             if (player != null)
             {
                 player.TakeDamage(dano);
-                playerlive.AtualizarVidasUI();
+                
             }
             else
             {
