@@ -31,6 +31,9 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private LayerMask groundlayer2;
     [SerializeField] private LayerMask wallLayer;
 
+    [Header("Armas")]
+    public 
+
     private float horizontalInput;
     private float wallJumpCooldown;
 
@@ -62,7 +65,7 @@ public class PlayerMovement : MonoBehaviour
             transform.localScale = Vector3.one;
         else if (horizontalInput < -0.01f)
             transform.localScale = new Vector3(-1, 1, 1);
-        if(Input.GetKey(Sprint))
+        if (Input.GetKey(Sprint))
         {
             SprintSpeed();
         }
@@ -84,13 +87,16 @@ public class PlayerMovement : MonoBehaviour
             Jump();
 
         WallSlide();
-        if(inPortal())
+        if (inPortal())
         {
             Debug.Log("Entrou no portal");
             SceneManager.LoadScene(Nomedoproximolevel);
         }
-    }
-
+        if (Input.GetMouseButtonDown(0))
+        {
+            Espada();
+        }
+            }
     [System.Obsolete]
     private void Jump()
     {
@@ -191,6 +197,12 @@ public class PlayerMovement : MonoBehaviour
             private bool inPortal ()
             {
                 Collider2D hit = Physics2D.OverlapBox(boxCollider.bounds.center, boxCollider.bounds.size, 0f, Portal);
+       
                 return hit != null;
             }
+    public void Espada()
+    {
+        Sword = GetComponentInChildren<Espada>();
+        
+    }
 }
