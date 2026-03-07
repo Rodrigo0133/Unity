@@ -9,7 +9,7 @@ public class Menu : MonoBehaviour
 
     public void Jogar()
     {
-        SceneManager.LoadScene("SampleScene");
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex+1);
     }
     public void Opções()
     {

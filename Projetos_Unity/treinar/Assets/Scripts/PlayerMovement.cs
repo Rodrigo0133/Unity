@@ -31,8 +31,7 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private LayerMask groundlayer2;
     [SerializeField] private LayerMask wallLayer;
 
-    [Header("Armas")]
-    public 
+   
 
     private float horizontalInput;
     private float wallJumpCooldown;

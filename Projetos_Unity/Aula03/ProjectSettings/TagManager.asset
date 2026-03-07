@@ -8,6 +8,8 @@ TagManager:
   - Humanos
   - Parede
   - Pontos
+  - Portal
+  - Final
   layers:
   - Default
   - TransparentFX
