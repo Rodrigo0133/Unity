@@ -13,11 +13,13 @@ public class Crab : Enemy
     {
         anim.SetTrigger("Hurt");
     }
+
+    
     protected override void DeathSequence()
     {
         anim.SetTrigger("Death");
         coll.enabled = false;
-        rb.isKinematic = true;
+        rb.bodyType = RigidbodyType2D.Kinematic;
     }
     
 }

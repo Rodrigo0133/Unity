@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEngine.Video;
 
 public class InimigoIA_QuadradosVermelho : MonoBehaviour
 {
@@ -8,19 +9,22 @@ public class InimigoIA_QuadradosVermelho : MonoBehaviour
     public bool isRight = true;
     public Transform GroundCheck;
     public LayerMask groundLayer;
+    private float VIDA = 3;
 
     [Header("Dano")]
     [SerializeField] public float dano;
+
+    
 
     private bool virou = false;
     
 
     void Update()
     {
-        // Move o inimigo
+        
         transform.Translate(Vector2.right * speed * Time.deltaTime);
 
-        // Verifica se há chão à frente
+        
         RaycastHit2D ground = Physics2D.Raycast(
             GroundCheck.position,
             Vector2.down,
@@ -30,7 +34,7 @@ public class InimigoIA_QuadradosVermelho : MonoBehaviour
 
         if (ground.collider == null && !virou)
         {
-            // Vira se não houver chão
+           
             transform.eulerAngles = new Vector3(0, isRight ? -180 : 0, 0);
             isRight = !isRight;
             virou = true;
@@ -49,14 +53,14 @@ public class InimigoIA_QuadradosVermelho : MonoBehaviour
         float alturaPlayer = collision.transform.position.y;
         float alturaInimigo = transform.position.y;
 
-        // Se o player estiver acima → inimigo morre
+        
         if (alturaPlayer > alturaInimigo + 0.3f)
         {
-            Morrer();
+            
         }
         else
         {
-            // Player leva dano
+            
             PlayerMovement player = collision.transform.GetComponentInParent<PlayerMovement>();
             PlayerLives playerlive = collision.transform.GetComponentInParent<PlayerLives>();
             if (player != null)
@@ -76,13 +80,21 @@ public class InimigoIA_QuadradosVermelho : MonoBehaviour
         Destroy(gameObject);
     }
 
-    // Debug opcional para ver a linha de chão no Scene View
+   
     private void OnDrawGizmos()
     {
         if (GroundCheck != null)
         {
             Gizmos.color = Color.red;
             Gizmos.DrawLine(GroundCheck.position, GroundCheck.position + Vector3.down * distance);
+        }
+    }
+    public void TakeDamage()
+    {
+        VIDA -= 1;
+        if (VIDA <= 0)
+        {
+            Morrer();
         }
     }
 }

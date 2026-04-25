@@ -219,7 +219,29 @@ public partial class @Controls: IInputActionCollection2, IDisposable
     /// </summary>
     public void Dispose()
     {
-        UnityEngine.Object.Destroy(asset);
+        // Tenta garantir que ações estão desabilitadas antes de destruir o asset.
+        try
+        {
+            Disable();
+        }
+        catch
+        {
+            // Ignorar exceções ao desabilitar durante Dispose.
+        }
+
+        if (asset != null)
+        {
+            try
+            {
+                UnityEngine.Object.Destroy(asset);
+            }
+            catch
+            {
+                // Ignorar possíveis exceções da Unity ao destruir durante Dispose.
+            }
+        }
+            
+        GC.SuppressFinalize(this);
     }
 
     /// <inheritdoc cref="UnityEngine.InputSystem.InputActionAsset.bindingMask" />

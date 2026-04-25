@@ -3,12 +3,14 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 3
-  tags: []
+  tags:
+  - Enemy
+  - Nada
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - nada
   - Water
   - UI
   - grounded
@@ -43,6 +45,9 @@ TagManager:
     locked: 0
   - name: UI
     uniqueID: 2586710609
+    locked: 0
+  - name: ceu
+    uniqueID: 1485418019
     locked: 0
   m_RenderingLayers:
   - Default

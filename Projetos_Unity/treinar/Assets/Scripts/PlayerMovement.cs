@@ -1,8 +1,12 @@
+using System.Collections;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 public class PlayerMovement : MonoBehaviour
 {
+    [SerializeField] private GameObject attackCollider;
+
     [Header("Movimento")]
     [SerializeField] private float speed;
     [SerializeField] private float jumpPower = 8f;
@@ -13,34 +17,36 @@ public class PlayerMovement : MonoBehaviour
     public KeyCode Sprint = KeyCode.LeftShift;
 
     [Header("Vida")]
-    // Altere os modificadores de acesso dos campos para 'public' para permitir acesso externo.
     public int maxLife;
     public float currentLife;
 
     [Header("Invencibilidade")]
     [SerializeField] private float invincibleTime = 1f;
     private bool isInvincible = false;
+
     [Header("Portal")]
     [SerializeField] private string Nomedoproximolevel;
     [SerializeField] private LayerMask Portal;
 
+    [Header("Colisï¿½es")]
     private Rigidbody2D body;
     private BoxCollider2D boxCollider;
-
     [SerializeField] private LayerMask groundlayer;
     [SerializeField] private LayerMask groundlayer2;
     [SerializeField] private LayerMask wallLayer;
 
-   
+    [SerializeField] private Animator animator;
 
     private float horizontalInput;
     private float wallJumpCooldown;
-
-    // Posição de respawn
     private Vector3 respawnPosition = new Vector3(-0.15f, -3.77f, 0f);
 
-    // Adicione este campo para armazenar a referência ao PlayerLives
     private PlayerLives playerLives;
+
+
+    public GameObject attackHitbox;
+    public float attackDuration = 0.3f;
+    public int damage = 25;
 
     private void Awake()
     {
@@ -51,9 +57,10 @@ public class PlayerMovement : MonoBehaviour
         currentLife = maxLife;
         transform.position = respawnPosition;
 
-        // Inicialize a referência ao PlayerLives
         playerLives = GetComponentInParent<PlayerLives>();
+
     }
+        
 
     [System.Obsolete]
     private void Update()
@@ -64,6 +71,11 @@ public class PlayerMovement : MonoBehaviour
             transform.localScale = Vector3.one;
         else if (horizontalInput < -0.01f)
             transform.localScale = new Vector3(-1, 1, 1);
+        animator.SetBool("Grounded", isGrounded() || isGrounded2());
+        animator.SetFloat("Speed", Mathf.Abs(horizontalInput));
+
+
+
         if (Input.GetKey(Sprint))
         {
             SprintSpeed();
@@ -75,7 +87,7 @@ public class PlayerMovement : MonoBehaviour
 
         if (wallJumpCooldown > 0.2f)
         {
-            body.velocity = new Vector2(horizontalInput * speed, body.velocity.y);
+            body.linearVelocity = new Vector2(horizontalInput * speed, body.linearVelocity.y);
         }
         else
         {
@@ -83,31 +95,43 @@ public class PlayerMovement : MonoBehaviour
         }
 
         if (Input.GetKeyDown(KeyCode.Space))
+        {
             Jump();
-
+           
+        }
+        else {             
+          
+        }
         WallSlide();
+        if (Input.GetMouseButtonDown(0))
+        {
+            animator.SetTrigger("Attack");
+            StartCoroutine(Attack());
+
+        }
         if (inPortal())
         {
             Debug.Log("Entrou no portal");
             SceneManager.LoadScene(Nomedoproximolevel);
         }
-        if (Input.GetMouseButtonDown(0))
-        {
-            Espada();
-        }
-            }
+
+     
+    }
+
     [System.Obsolete]
     private void Jump()
     {
-        if (isGrounded() || isGrounded2())      
+        if (isGrounded() || isGrounded2())
         {
-            body.velocity = new Vector2(body.velocity.x, jumpPower);
+            body.linearVelocity = new Vector2(body.linearVelocity.x, jumpPower);
         }
         else if ((onWall() && !isGrounded()) || (onWall() && !isGrounded2()))
         {
-            body.velocity = new Vector2(-Mathf.Sign(transform.localScale.x) * wallJumpForce, jumpPower);
+            body.linearVelocity = new Vector2(-Mathf.Sign(transform.localScale.x) * wallJumpForce, jumpPower);
             wallJumpCooldown = 0;
         }
+        
+   
     }
 
     [System.Obsolete]
@@ -115,16 +139,18 @@ public class PlayerMovement : MonoBehaviour
     {
         if (onWall() && !isGrounded() && horizontalInput != 0)
         {
-            body.velocity = new Vector2(
-                body.velocity.x,
-                Mathf.Clamp(body.velocity.y, -wallSlideSpeed, float.MaxValue)
+            body.linearVelocity = new Vector2(
+                body.linearVelocity.x,
+                Mathf.Clamp(body.linearVelocity.y, -wallSlideSpeed, float.MaxValue)
             );
         }
+
+      
     }
+
     public void SprintSpeed()
     {
         speed = SprintValor;
-       
     }
 
     private bool isGrounded()
@@ -161,7 +187,7 @@ public class PlayerMovement : MonoBehaviour
     [System.Obsolete]
     public void TakeDamage(float damage)
     {
-        if (isInvincible) return; // ignora dano se estiver invencível
+        if (isInvincible) return; 
 
         currentLife -= damage;
         if (currentLife <= 0)
@@ -170,11 +196,8 @@ public class PlayerMovement : MonoBehaviour
         }
         else
         {
-            Debug.Log($"Jogador recebeu {damage} de dano. Vida atual: {currentLife}");
-            StartCoroutine(InvincibilityCoroutine());
+           
         }
-        // Use a referência de instância para chamar HealthLogick
-       
     }
 
     [System.Obsolete]
@@ -182,26 +205,47 @@ public class PlayerMovement : MonoBehaviour
     {
         Debug.Log("Jogador morreu! Voltando para respawn...");
         currentLife = maxLife;
-        body.velocity = Vector2.zero;
+        body.linearVelocity = Vector2.zero;
         transform.position = respawnPosition;
-        StartCoroutine(InvincibilityCoroutine()); // invencível um pouco após respawn
+        StartCoroutine(InvincibilityCoroutine()); // invencï¿½vel um pouco apï¿½s respawn
+
+      
     }
 
     private System.Collections.IEnumerator InvincibilityCoroutine()
-    {
+    {   
         isInvincible = true;
         yield return new WaitForSeconds(invincibleTime);
         isInvincible = false;
     }
-            private bool inPortal ()
-            {
-                Collider2D hit = Physics2D.OverlapBox(boxCollider.bounds.center, boxCollider.bounds.size, 0f, Portal);
-       
-                return hit != null;
-            }
-    public void Espada()
+    public void AttackReset()
     {
-        Sword = GetComponentInChildren<Espada>();
-        
+        animator.ResetTrigger("Attack");
+    }
+    private bool inPortal()
+    {
+        Collider2D hit = Physics2D.OverlapBox(boxCollider.bounds.center, boxCollider.bounds.size, 0f, Portal);
+        return hit != null;
+    }
+
+    public void ActivateAttackCollider()
+    {
+        attackCollider.SetActive(true);
+    }
+
+    public void DeactivateAttackCollider()
+    {
+        attackCollider.SetActive(false);
+    }
+  
+    public GameObject attackRange; 
+
+   
+
+    IEnumerator Attack()
+    {
+        attackRange.SetActive(true);   
+        yield return new WaitForSeconds(0.2f); 
+        attackRange.SetActive(false);  
     }
 }
