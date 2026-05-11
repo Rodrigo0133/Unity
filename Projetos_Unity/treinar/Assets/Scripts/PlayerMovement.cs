@@ -187,8 +187,6 @@ public class PlayerMovement : MonoBehaviour
     [System.Obsolete]
     public void TakeDamage(float damage)
     {
-        if (isInvincible) return; 
-
         currentLife -= damage;
         if (currentLife <= 0)
         {
@@ -207,7 +205,7 @@ public class PlayerMovement : MonoBehaviour
         currentLife = maxLife;
         body.linearVelocity = Vector2.zero;
         transform.position = respawnPosition;
-        StartCoroutine(InvincibilityCoroutine()); // invenc�vel um pouco ap�s respawn
+        StartCoroutine(InvincibilityCoroutine());
 
       
     }
