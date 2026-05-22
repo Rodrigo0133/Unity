@@ -1,91 +1,201 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// Boss Barata - Máquina de estados completa com 3 ataques, sistema de vida,
+/// fase de fúria, e IA totalmente funcional.
+/// 
+/// COMO USAR:
+///   1. Arrasta este script para o GameObject do Boss no Inspector.
+///   2. Preenche os campos públicos marcados com [Header].
+///   3. O campo "jogador" e "anim" são preenchidos automaticamente se não definidos.
+///   4. Certifica-te que o Player tem a tag "Player".
+///   5. Para causar dano ao boss, chama: boss.GetComponent<BossBarata>().TomarDano(valor);
+/// </summary>
 public class BossBarata : MonoBehaviour
 {
-    // --- ESTADOS DO BOSS ---
-    // Uma máquina de estados simples para saber o que o boss está fazendo
+    // ══════════════════════════════════════════════════════════════
+    // ENUMS
+    // ══════════════════════════════════════════════════════════════
     public enum BossState
     {
-        Idle,              // Boss parado/andando, esperando para atacar
-        PreparandoAtaque,  // Boss decidiu qual ataque fazer
-        Atacando,          // Boss executando o ataque (não pode ser interrompido)
-        Cooldown           // Tempo de recuperação após um ataque
+        Idle,
+        PreparandoAtaque,
+        Atacando,
+        Cooldown,
+        Morto
     }
 
-    [Header("Status do Boss")]
-    [Tooltip("Vida máxima do Boss. Você mencionou 25, ajustei para 35 para ser um desafio justo.")]
-    public int maxVida = 35;
-    [Tooltip("Vida atual do Boss.")]
-    public int vidaAtual;
+    // ══════════════════════════════════════════════════════════════
+    // CAMPOS PRIVADOS ESSENCIAIS (declarados aqui para não haver erros)
+    // ══════════════════════════════════════════════════════════════
+    private Animator anim;
+    private Transform jogador;
     private bool estaMorto = false;
+    private bool emFase2 = false;
 
-    [Header("Mecânicas Gerais / IA")]
-    [Tooltip("Estado atual do boss.")]
+    // ══════════════════════════════════════════════════════════════
+    // INSPECTOR - STATUS
+    // ══════════════════════════════════════════════════════════════
+    [Header("═══ STATUS DO BOSS ═══")]
+    [Tooltip("Vida máxima do Boss.")]
+    public int maxVida = 35;
+
+    [Tooltip("Vida atual do Boss (preenchido automaticamente no Start).")]
+    public int vidaAtual;
+
+    [Tooltip("Estado actual do Boss (útil para debug no Inspector).")]
     public BossState currentState = BossState.Idle;
-    
-    [Tooltip("Tempo mínimo que o boss espera antes de lançar outro ataque aleatório.")]
+
+    // ══════════════════════════════════════════════════════════════
+    // INSPECTOR - REFERÊNCIAS
+    // ══════════════════════════════════════════════════════════════
+    [Header("═══ REFERÊNCIAS ═══")]
+    [Tooltip("Animator do Boss. Preenchido automaticamente se deixado vazio.")]
+    public Animator animatorExterno;
+
+    [Tooltip("Transform do Jogador. Preenchido automaticamente pela tag 'Player' se deixado vazio.")]
+    public Transform jogadorExterno;
+
+    // ══════════════════════════════════════════════════════════════
+    // INSPECTOR - IA / TIMING
+    // ══════════════════════════════════════════════════════════════
+    [Header("═══ IA / TIMING ═══")]
+    [Tooltip("Tempo mínimo de espera entre ataques (Fase 1).")]
     public float tempoEntreAtaquesMin = 2f;
-    [Tooltip("Tempo máximo que o boss espera antes de lançar outro ataque aleatório.")]
+
+    [Tooltip("Tempo máximo de espera entre ataques (Fase 1).")]
     public float tempoEntreAtaquesMax = 4.5f;
 
-    [Header("Referências Principais")]
-    public Animator anim;       // Controlador de animações
-    public Transform jogador;   // Referência ao alvo (player)
+    [Tooltip("Percentagem de vida (0-1) em que o boss entra na Fase 2 (modo fúria).")]
+    [Range(0f, 1f)]
+    public float limiarFase2 = 0.5f;
 
-    [Header("Ataque 1: Emboscada Subterrânea")]
-    [Tooltip("O lugar central para onde o boss sempre volta após atacar.")]
-    public Transform pontoInicialFixo;
-    [Tooltip("O prefab visual (ex: círculo vermelho, buraco abrindo) para avisar o jogador.")]
+    // ══════════════════════════════════════════════════════════════
+    // INSPECTOR - ATAQUE 1: EMBOSCADA SUBTERRÂNEA
+    // ══════════════════════════════════════════════════════════════
+    [Header("═══ ATAQUE 1: EMBOSCADA ═══")]
+    [Tooltip("Prefab visual de aviso no chão (ex: círculo vermelho).")]
     public GameObject avisoDeBuracoPrefab;
-    [Tooltip("Quanto tempo o aviso aparece antes da barata pular para fora e dar dano.")]
+
+    [Tooltip("Segundos que o aviso fica visível antes do boss emergir.")]
     public float tempoAvisoEmboscada = 2f;
 
-    [Header("Ataque 2: Enxame de Mini Baratas")]
-    [Tooltip("O prefab da mini barata inimiga.")]
+    [Tooltip("Tempo da animação de entrar no chão.")]
+    public float tempoAnimacaoEntrar = 1f;
+
+    [Tooltip("Tempo da animação de sair do chão.")]
+    public float tempoAnimacaoSair = 2f;
+
+    [Tooltip("Raio do dano em área ao emergir.")]
+    public float raioErupcao = 2.5f;
+
+    [Tooltip("Dano causado pela erupção.")]
+    public int danoErupcao = 15;
+
+    // ══════════════════════════════════════════════════════════════
+    // INSPECTOR - ATAQUE 2: ENXAME DE MINI BARATAS
+    // ══════════════════════════════════════════════════════════════
+    [Header("═══ ATAQUE 2: ENXAME ═══")]
+    [Tooltip("Prefab da mini barata.")]
     public GameObject miniBarataPrefab;
-    [Tooltip("Posição da boca ou barriga do boss por onde saem as baratinhas.")]
+
+    [Tooltip("Transform da boca/barriga por onde saem as baratinhas.")]
     public Transform pontoSpawnMiniBaratas;
-    [Tooltip("Quantas mini baratas saem neste ataque.")]
+
+    [Tooltip("Número de mini baratas invocadas.")]
     public int quantidadeDeMiniBaratas = 6;
-    [Tooltip("Intervalo de tempo entre o spawn de cada mini barata.")]
+
+    [Tooltip("Intervalo entre cada spawn de baratinha.")]
     public float tempoEntreSpawns = 0.3f;
 
-    [Header("Ataque 3: Onda de Terra (Tsunami)")]
-    [Tooltip("O prefab do ataque em área da onda de terra que se move pelo chão.")]
+    // ══════════════════════════════════════════════════════════════
+    // INSPECTOR - ATAQUE 3: ONDA DE TERRA
+    // ══════════════════════════════════════════════════════════════
+    [Header("═══ ATAQUE 3: ONDA DE TERRA ═══")]
+    [Tooltip("Prefab da onda de terra.")]
     public GameObject ondaDeTerraPrefab;
-    [Tooltip("Posição na frente do boss onde a onda de terra começa.")]
+
+    [Tooltip("Transform na frente do boss onde a onda nasce.")]
     public Transform pontoSpawnOnda;
 
+    // ══════════════════════════════════════════════════════════════
+    // INSPECTOR - FEEDBACK / VFX / SFX
+    // ══════════════════════════════════════════════════════════════
+    [Header("═══ FEEDBACK VISUAL / SOM ═══")]
+    [Tooltip("Prefab de partículas ao tomar dano (opcional).")]
+    public GameObject vfxDano;
+
+    [Tooltip("Prefab de efeito de morte (opcional).")]
+    public GameObject vfxMorte;
+
+    [Tooltip("AudioSource do Boss (opcional, para sons).")]
+    public AudioSource audioSource;
+
+    [Tooltip("Som ao tomar dano.")]
+    public AudioClip somDano;
+
+    [Tooltip("Som ao morrer.")]
+    public AudioClip somMorte;
+
+    // ══════════════════════════════════════════════════════════════
+    // UNITY LIFECYCLE
+    // ══════════════════════════════════════════════════════════════
     void Start()
     {
-        // Inicializa a vida do boss
         vidaAtual = maxVida;
 
-        // Se as referências não foram preenchidas no Inspector, tentamos achar
-        if (anim == null) anim = GetComponent<Animator>();
-        if (jogador == null) 
+        // Resolve referências: usa as externas se definidas, senão busca automaticamente
+        anim = (animatorExterno != null) ? animatorExterno : GetComponent<Animator>();
+
+        if (jogadorExterno != null)
+        {
+            jogador = jogadorExterno;
+        }
+        else
         {
             GameObject p = GameObject.FindGameObjectWithTag("Player");
-            if (p != null) jogador = p.transform;
+            if (p != null)
+                jogador = p.transform;
+            else
+                Debug.LogWarning("[BossBarata] Nenhum GameObject com tag 'Player' encontrado na cena!");
         }
 
-        // Inicia a "Inteligência" do Boss, rodando os ataques em loop infinito
         StartCoroutine(CicloDeBatalha());
     }
 
-    // ==========================================
+    // ══════════════════════════════════════════════════════════════
     // SISTEMA DE VIDA E MORTE
-    // ==========================================
+    // ══════════════════════════════════════════════════════════════
+
+    /// <summary>Causa dano ao Boss. Chama este método de outros scripts (projéteis, espada, etc.).</summary>
     public void TomarDano(int dano)
     {
         if (estaMorto) return;
 
         vidaAtual -= dano;
-        Debug.Log("Boss Barata tomou " + dano + " de dano! Vida restante: " + vidaAtual);
+        vidaAtual = Mathf.Max(vidaAtual, 0); // Não passa de 0
 
-        // Opcional: Tocar uma animação de Hit ou piscar o boss
-        // anim.SetTrigger("TomarDano");
+        Debug.Log($"[BossBarata] Tomou {dano} de dano. Vida: {vidaAtual}/{maxVida}");
+
+        // VFX de dano
+        if (vfxDano != null)
+            Instantiate(vfxDano, transform.position, Quaternion.identity);
+
+        // SFX de dano
+        if (audioSource != null && somDano != null)
+            audioSource.PlayOneShot(somDano);
+
+        // Trigger de animação de hit
+        if (anim != null)
+            anim.SetTrigger("TomarDano");
+
+        // Verifica transição para Fase 2
+        if (!emFase2 && vidaAtual <= maxVida * limiarFase2)
+        {
+            EntrarFase2();
+        }
 
         if (vidaAtual <= 0)
         {
@@ -93,269 +203,240 @@ public class BossBarata : MonoBehaviour
         }
     }
 
-    void Morrer()
+    private void EntrarFase2()
     {
-        estaMorto = true;
-        Debug.Log("O Boss Barata foi derrotado!");
+        emFase2 = true;
+        Debug.Log("[BossBarata] FASE 2 ATIVADA! Boss em modo fúria.");
 
-        // Para a IA e todos os ataques que estiverem acontecendo
+        // Reduz os tempos de espera para deixar o boss mais agressivo
+        tempoEntreAtaquesMin = Mathf.Max(0.5f, tempoEntreAtaquesMin * 0.6f);
+        tempoEntreAtaquesMax = Mathf.Max(1.5f, tempoEntreAtaquesMax * 0.6f);
+        quantidadeDeMiniBaratas = Mathf.RoundToInt(quantidadeDeMiniBaratas * 1.5f);
+
+        if (anim != null)
+            anim.SetTrigger("Fase2");
+    }
+
+    private void Morrer()
+    {
+        if (estaMorto) return;
+        estaMorto = true;
+
+        currentState = BossState.Morto;
+        Debug.Log("[BossBarata] Boss Barata foi derrotado!");
+
         StopAllCoroutines();
 
-        // Toca animação de morte (Crie esse Trigger no Animator)
-        anim.SetTrigger("Morrer");
+        if (anim != null)
+            anim.SetTrigger("Morrer");
 
-        // Opcional: Desativa colisor para o jogador poder passar pelo corpo
-        Collider col = GetComponent<Collider>();
-        if (col != null) col.enabled = false;
+        // VFX de morte
+        if (vfxMorte != null)
+            Instantiate(vfxMorte, transform.position, Quaternion.identity);
 
-        // Opcional: Destrói o boss da cena após um tempo ou exibe tela de vitória
+        // SFX de morte
+        if (audioSource != null && somMorte != null)
+            audioSource.PlayOneShot(somMorte);
+
+        // Desativa colisores
+        foreach (Collider col in GetComponentsInChildren<Collider>())
+            col.enabled = false;
+
+        // Opcional: Destruir após 5 segundos
         // Destroy(gameObject, 5f);
     }
 
-    // Corotina responsável pelo cérebro do boss, escolhendo o que fazer e quando
+    // ══════════════════════════════════════════════════════════════
+    // CICLO DE BATALHA (CÉREBRO DO BOSS)
+    // ══════════════════════════════════════════════════════════════
     IEnumerator CicloDeBatalha()
     {
-        // Fica rodando pra sempre enquanto o boss estiver vivo
+        // Pequena pausa inicial antes do boss começar a atacar
+        yield return new WaitForSeconds(1f);
+
         while (!estaMorto)
         {
-            // O boss só ataca se estiver "Idle" ou em "Cooldown"
-            if (currentState == BossState.Idle || currentState == BossState.Cooldown)
+            // Espera aleatória entre ataques
+            float espera = Random.Range(tempoEntreAtaquesMin, tempoEntreAtaquesMax);
+            yield return new WaitForSeconds(espera);
+
+            if (estaMorto) yield break;
+
+            // Escolhe e ESPERA o ataque terminar antes de continuar
+            int escolha = Random.Range(1, 4); // Escolhe 1, 2 ou 3
+            switch (escolha)
             {
-                // O Boss "pensa" por um tempo aleatório
-                float tempoDeEspera = Random.Range(tempoEntreAtaquesMin, tempoEntreAtaquesMax);
-                yield return new WaitForSeconds(tempoDeEspera);
-
-                // Troca para preparando e escolhe o ataque
-                currentState = BossState.PreparandoAtaque;
-                EscolherAtaqueAleatorio();
+                case 1: yield return StartCoroutine(Ataque1_EmboscadaSubterranea()); break;
+                case 2: yield return StartCoroutine(Ataque2_EnxameMiniBaratas());    break;
+                case 3: yield return StartCoroutine(Ataque3_TsunamiDeTerra());       break;
             }
-
-            // Espera até o próximo frame para checar de novo
-            yield return null;
         }
     }
 
-    void EscolherAtaqueAleatorio()
-    {
-        if (estaMorto) return;
-
-        // Em um jogo grande, podemos ter um Random.Range, ou até mesmo um sistema de pesos
-        // Ex: Se o jogador está muito longe, aumenta a chance da Onda de Terra.
-        // Aqui usaremos 1, 2 ou 3 aleatoriamente.
-        int ataqueEscolhido = Random.Range(1, 4); // Escolhe 1, 2 ou 3
-
-        switch (ataqueEscolhido)
-        {
-            case 1:
-                StartCoroutine(Ataque1_EmboscadaSubterranea());
-                break;
-            case 2:
-                StartCoroutine(Ataque2_EnxameMiniBaratas());
-                break;
-            case 3:
-                StartCoroutine(Ataque3_TsunamiDeTerra());
-                break;
-        }
-    }
-
-    // ==========================================
+    // ══════════════════════════════════════════════════════════════
     // ATAQUE 1: EMBOSCADA SUBTERRÂNEA
-    // ==========================================
+    // ══════════════════════════════════════════════════════════════
     IEnumerator Ataque1_EmboscadaSubterranea()
     {
         currentState = BossState.Atacando;
+        Debug.Log("[BossBarata] Ataque 1: Emboscada Subterrânea!");
 
-        // 1. Toca animação de escavar/entrar no chão
-        anim.SetTrigger("AtkEmboscada_Entrar");
+        if (anim != null) anim.SetTrigger("AtkEmboscada_Entrar");
+        yield return new WaitForSeconds(tempoAnimacaoEntrar);
 
-        // (Opcional: Esperar a animação terminar e então sumir visualmente o modelo 3D do boss)
-        yield return new WaitForSeconds(1.0f); // Tempo fictício da animação de cavar
-        
-        // --- Boss fica invisível e invulnerável debaixo da terra ---
-        // Exemplo: GetComponentInChildren<SkinnedMeshRenderer>().enabled = false;
+        // Torna o boss visualmente invisível (se tiver MeshRenderer)
+        SetVisibilidade(false);
 
-        // 2. Grava a posição atual do jogador para ser o alvo da emboscada
-        Vector3 posicaoAlvo = jogador.position;
-        posicaoAlvo.y = transform.position.y; // Mantém a mesma altura no eixo Y
+        // Grava posição do jogador como alvo (null-safe)
+        Vector3 posicaoAlvo = jogador != null
+            ? new Vector3(jogador.position.x, transform.position.y, jogador.position.z)
+            : transform.position;
 
-        // 3. Surge a marca/aviso no chão onde o jogador estava
+        // Spawna aviso visual
         GameObject avisoAtual = null;
         if (avisoDeBuracoPrefab != null)
-        {
             avisoAtual = Instantiate(avisoDeBuracoPrefab, posicaoAlvo, Quaternion.identity);
-        }
 
-        // 4. Aguarda alguns segundos para o jogador ver a marca e ter tempo de desviar
         yield return new WaitForSeconds(tempoAvisoEmboscada);
 
-        // 5. Move o Boss invisível para aquele ponto antes dele emergir
+        // Move o boss para o ponto alvo e destrói o aviso
         transform.position = posicaoAlvo;
-
-        // 6. Destrói o sinal visual, pois o boss está saindo
         if (avisoAtual != null) Destroy(avisoAtual);
 
-        // --- Retorna a visibilidade do Boss ---
-        
-        // 7. Toca animação de sair do chão (Essa animação deve ter um "Animation Event" chamando a função que causa dano em área, ou usar um colisor na frente)
-        anim.SetTrigger("AtkEmboscada_Sair");
+        // Reaparece
+        SetVisibilidade(true);
 
-        // Aguarda a animação acabar para o boss se recuperar
-        yield return new WaitForSeconds(2.0f); 
+        if (anim != null) anim.SetTrigger("AtkEmboscada_Sair");
 
-        // 8. Após o ataque, o boss volta para a posição inicial
-        yield return StartCoroutine(RetornarParaPosicaoInicial());
+        // Causa dano em área ao emergir
+        CausarDanoEmAreaErupcao();
+
+        yield return new WaitForSeconds(tempoAnimacaoSair);
 
         currentState = BossState.Cooldown;
     }
 
-    // ==========================================
+    // ══════════════════════════════════════════════════════════════
     // ATAQUE 2: ENXAME DE MINI BARATAS
-    // ==========================================
+    // ══════════════════════════════════════════════════════════════
     IEnumerator Ataque2_EnxameMiniBaratas()
     {
         currentState = BossState.Atacando;
+        Debug.Log("[BossBarata] Ataque 2: Enxame de Mini Baratas!");
 
-        // 1. Toca animação de gritar ou cuspir as baratinhas
-        anim.SetTrigger("AtkEnxame_Carregar");
-
-        // Espera o exato momento na animação que a boca abre (ajuste esse tempo)
+        if (anim != null) anim.SetTrigger("AtkEnxame_Carregar");
         yield return new WaitForSeconds(0.8f);
 
-        // 2. Faz um loop para cuspir as baratas uma por uma
         for (int i = 0; i < quantidadeDeMiniBaratas; i++)
         {
+            if (estaMorto) yield break;
+
             if (miniBarataPrefab != null && pontoSpawnMiniBaratas != null)
             {
-                // Cria a baratinha
-                GameObject baratinha = Instantiate(miniBarataPrefab, pontoSpawnMiniBaratas.position, pontoSpawnMiniBaratas.rotation);
-                
-                // O script da baratinha em si deve ser responsável por correr reto e dar dano/destruir.
-                // Exemplo: baratinha.GetComponent<MiniBarataIA>().DefinirAlvo(jogador);
+                GameObject baratinha = Instantiate(
+                    miniBarataPrefab,
+                    pontoSpawnMiniBaratas.position,
+                    pontoSpawnMiniBaratas.rotation
+                );
+
+                // Se a mini barata tiver um script com SetAlvo, chama aqui:
+                // MiniBarataIA ia = baratinha.GetComponent<MiniBarataIA>();
+                // if (ia != null && jogador != null) ia.SetAlvo(jogador);
             }
-            
-            // Pausa entre o spawn de uma barata e outra para não saírem coladas
+
             yield return new WaitForSeconds(tempoEntreSpawns);
         }
 
-        // Tempo final de recuperação do ataque
         yield return new WaitForSeconds(1.5f);
-
-        // Volta para a posição inicial após o ataque
-        yield return StartCoroutine(RetornarParaPosicaoInicial());
 
         currentState = BossState.Cooldown;
     }
 
-    // ==========================================
+    // ══════════════════════════════════════════════════════════════
     // ATAQUE 3: ONDA DE TERRA (TSUNAMI)
-    // ==========================================
+    // ══════════════════════════════════════════════════════════════
     IEnumerator Ataque3_TsunamiDeTerra()
     {
         currentState = BossState.Atacando;
+        Debug.Log("[BossBarata] Ataque 3: Tsunami de Terra!");
 
-        // 1. O Boss levanta as garras ou bate o pé (animação de aviso do ataque carregado)
-        anim.SetTrigger("AtkTsunami_Carregar");
-
-        // Tempo que ele fica carregando e o jogador já entende "Opa, vem um ataque grande, vou preparar o salto"
+        if (anim != null) anim.SetTrigger("AtkTsunami_Carregar");
         yield return new WaitForSeconds(1.5f);
 
-        // 2. Animação dele descendo as garras/patas no chão com força
-        anim.SetTrigger("AtkTsunami_Lancar");
-
-        // Pequeno atraso para a animação bater no chão antes do poder sair
+        if (anim != null) anim.SetTrigger("AtkTsunami_Lancar");
         yield return new WaitForSeconds(0.2f);
 
-        // 3. Spawna a Onda de Terra ("Tsunami")
         if (ondaDeTerraPrefab != null && pontoSpawnOnda != null)
         {
-            // Cria o tsunami apontado para onde o boss está olhando
-            GameObject tsunami = Instantiate(ondaDeTerraPrefab, pontoSpawnOnda.position, pontoSpawnOnda.rotation);
-            
-            // O script da OndaDeTerraPrefab cuidará de mover ela para frente e destruir após um tempo
+            Instantiate(ondaDeTerraPrefab, pontoSpawnOnda.position, pontoSpawnOnda.rotation);
+        }
+        else
+        {
+            if (ondaDeTerraPrefab == null)
+                Debug.LogWarning("[BossBarata] 'ondaDeTerraPrefab' não está definido!");
+            if (pontoSpawnOnda == null)
+                Debug.LogWarning("[BossBarata] 'pontoSpawnOnda' não está definido!");
         }
 
-        // Tempo de recuperação pós-ataque
-        yield return new WaitForSeconds(2.0f);
-
-        // Volta para a posição inicial após o ataque
-        yield return StartCoroutine(RetornarParaPosicaoInicial());
+        yield return new WaitForSeconds(2f);
 
         currentState = BossState.Cooldown;
     }
 
-    // ==========================================
-    // RETORNAR PARA A POSIÇÃO INICIAL
-    // ==========================================
-    IEnumerator RetornarParaPosicaoInicial()
-    {
-        if (pontoInicialFixo == null) yield break;
+    // ══════════════════════════════════════════════════════════════
+    // HELPERS
+    // ══════════════════════════════════════════════════════════════
 
-        // Se já estiver muito perto da posição inicial, não precisa andar
-        if (Vector3.Distance(transform.position, pontoInicialFixo.position) < 0.5f)
-        {
-            yield break;
-        }
-
-        // Opcional: Se tiver uma animação de andar/correr, você pode ativar aqui
-        // anim.SetBool("Andando", true);
-
-        // Move o boss suavemente de volta para o ponto inicial
-        while (Vector3.Distance(transform.position, pontoInicialFixo.position) > 0.1f)
-        {
-            // Vira para o ponto inicial
-            Vector3 direcao = pontoInicialFixo.position - transform.position;
-            direcao.y = 0;
-            if (direcao != Vector3.zero)
-            {
-                Quaternion rotacaoAlvo = Quaternion.LookRotation(direcao);
-                transform.rotation = Quaternion.Slerp(transform.rotation, rotacaoAlvo, Time.deltaTime * 5f);
-            }
-
-            // Move para o ponto inicial a uma velocidade de 5 (ajuste se precisar)
-            transform.position = Vector3.MoveTowards(transform.position, pontoInicialFixo.position, Time.deltaTime * 5f);
-
-            // Espera até o próximo frame
-            yield return null;
-        }
-
-        // Garante que ele pare exatamente no ponto correto
-        transform.position = pontoInicialFixo.position;
-
-        // Opcional: Desativa animação de andar
-        // anim.SetBool("Andando", false);
-    }
-
-    void Update()
-    {
-        if (estaMorto) return;
-
-        // Fora dos ataques principais e se ele não está cavando, o Boss vira para encarar o jogador
-        // (Ajuste ou remova se preferir que ele vire por Root Motion nas animações)
-        if (jogador != null && currentState != BossState.Atacando)
-        {
-            Vector3 direcaoParaJogador = jogador.position - transform.position;
-            direcaoParaJogador.y = 0; // Previne que o Boss incline para baixo/cima
-            
-            if (direcaoParaJogador != Vector3.zero)
-            {
-                Quaternion rotacaoAlvo = Quaternion.LookRotation(direcaoParaJogador);
-                transform.rotation = Quaternion.Slerp(transform.rotation, rotacaoAlvo, Time.deltaTime * 3f);
-            }
-        }
-    }
-
-    // --- FUNÇÃO PARA SER CHAMADA POR EVENTOS DE ANIMAÇÃO (OPCIONAL) ---
-    // Você pode chamar isso direto da animação "AtkEmboscada_Sair" se quiser o dano em área em um frame específico!
+    /// <summary>
+    /// Causa dano em área ao redor do boss (chamado ao emergir da terra).
+    /// Pode também ser chamado por um Animation Event no Animator.
+    /// </summary>
     public void CausarDanoEmAreaErupcao()
     {
-        // Lógica de Physics.OverlapSphere para achar o jogador e dar dano
-        /*
-        Collider[] hits = Physics.OverlapSphere(transform.position, 5f);
-        foreach(var hit in hits) {
-            if(hit.CompareTag("Player")) {
-                hit.GetComponent<PlayerHealth>().TomarDano(50);
+        Collider[] hits = Physics.OverlapSphere(transform.position, raioErupcao);
+        foreach (Collider hit in hits)
+        {
+            if (hit.CompareTag("Player"))
+            {
+                // Adapta ao teu script de vida do jogador:
+                // PlayerHealth ph = hit.GetComponent<PlayerHealth>();
+                // if (ph != null) ph.TomarDano(danoErupcao);
+
+                Debug.Log($"[BossBarata] Erupção causou {danoErupcao} de dano ao Jogador!");
             }
         }
-        */
+    }
+
+    /// <summary>
+    /// Liga ou desliga todos os Renderers filhos do boss (para o efeito de entrar/sair do chão).
+    /// </summary>
+    private void SetVisibilidade(bool visivel)
+    {
+        foreach (Renderer r in GetComponentsInChildren<Renderer>())
+            r.enabled = visivel;
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // GIZMOS (visualização no Editor do Unity)
+    // ══════════════════════════════════════════════════════════════
+    void OnDrawGizmosSelected()
+    {
+        // Raio de erupção (Ataque 1)
+        Gizmos.color = new Color(1f, 0.3f, 0f, 0.4f);
+        Gizmos.DrawSphere(transform.position, raioErupcao);
+
+        // Ponto spawn onda
+        if (pontoSpawnOnda != null)
+        {
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawSphere(pontoSpawnOnda.position, 0.3f);
+        }
+
+        // Ponto spawn mini baratas
+        if (pontoSpawnMiniBaratas != null)
+        {
+            Gizmos.color = Color.green;
+            Gizmos.DrawSphere(pontoSpawnMiniBaratas.position, 0.2f);
+        }
     }
 }

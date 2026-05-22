@@ -10,7 +10,7 @@ public class PlayerLives : MonoBehaviour
     private PlayerMovement Script_P;
     void Awake()
     {
-        Script_P = GetComponent<PlayerMovement>();
+        Script_P = FindObjectOfType<PlayerMovement>();
     }
     private void Update()
     {
