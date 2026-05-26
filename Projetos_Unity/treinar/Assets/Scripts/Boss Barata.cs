@@ -34,11 +34,16 @@ public class BossBarata : MonoBehaviour
     private Transform jogador;
     private bool estaMorto = false;
     private bool emFase2 = false;
+    private bool invencivel = false;
+    private bool batalhaIniciada = false;
 
     // ══════════════════════════════════════════════════════════════
     // INSPECTOR - STATUS
     // ══════════════════════════════════════════════════════════════
     [Header("═══ STATUS DO BOSS ═══")]
+    [Tooltip("Se verdadeiro, o boss só começa a atacar quando IniciarBatalha() for chamado.")]
+    public bool esperarTriggerParaComecar = true;
+
     [Tooltip("Vida máxima do Boss.")]
     public int maxVida = 35;
 
@@ -70,7 +75,7 @@ public class BossBarata : MonoBehaviour
 
     [Tooltip("Percentagem de vida (0-1) em que o boss entra na Fase 2 (modo fúria).")]
     [Range(0f, 1f)]
-    public float limiarFase2 = 0.5f;
+    public float limiarFase2 = 0.25f;
 
     // ══════════════════════════════════════════════════════════════
     // INSPECTOR - ATAQUE 1: EMBOSCADA SUBTERRÂNEA
@@ -79,8 +84,11 @@ public class BossBarata : MonoBehaviour
     [Tooltip("Prefab visual de aviso no chão (ex: círculo vermelho).")]
     public GameObject avisoDeBuracoPrefab;
 
-    [Tooltip("Segundos que o aviso fica visível antes do boss emergir.")]
-    public float tempoAvisoEmboscada = 2f;
+    [Tooltip("Tempo (em segundos) que o aviso segue o jogador.")]
+    public float tempoAvisoSegueJogador = 3f;
+
+    [Tooltip("Tempo (em segundos) que o aviso fica parado no chão antes de dar dano.")]
+    public float tempoAvisoParado = 1f;
 
     [Tooltip("Tempo da animação de entrar no chão.")]
     public float tempoAnimacaoEntrar = 1f;
@@ -92,7 +100,7 @@ public class BossBarata : MonoBehaviour
     public float raioErupcao = 2.5f;
 
     [Tooltip("Dano causado pela erupção.")]
-    public int danoErupcao = 15;
+    public int danoErupcao = 1;
 
     // ══════════════════════════════════════════════════════════════
     // INSPECTOR - ATAQUE 2: ENXAME DE MINI BARATAS
@@ -111,14 +119,14 @@ public class BossBarata : MonoBehaviour
     public float tempoEntreSpawns = 0.3f;
 
     // ══════════════════════════════════════════════════════════════
-    // INSPECTOR - ATAQUE 3: ONDA DE TERRA
+    // INSPECTOR - DEBUG / TESTES
     // ══════════════════════════════════════════════════════════════
-    [Header("═══ ATAQUE 3: ONDA DE TERRA ═══")]
-    [Tooltip("Prefab da onda de terra.")]
-    public GameObject ondaDeTerraPrefab;
+    [Header("═══ DEBUG / TESTES ═══")]
+    [Tooltip("Se verdadeiro, o boss perde vida sozinho com o tempo. Útil para testar sem ter um jogador pronto.")]
+    public bool bossMorreSozinho = true;
 
-    [Tooltip("Transform na frente do boss onde a onda nasce.")]
-    public Transform pontoSpawnOnda;
+    [Tooltip("Podes pressionar a barra de ESPAÇO para dar dano ao boss manualmente.")]
+    public bool danoPeloEspaco = true;
 
     // ══════════════════════════════════════════════════════════════
     // INSPECTOR - FEEDBACK / VFX / SFX
@@ -146,8 +154,30 @@ public class BossBarata : MonoBehaviour
     {
         vidaAtual = maxVida;
 
+        // AUTO-CONFIGURAÇÃO 2D: Garante que o Boss tem tudo o que precisa
+        gameObject.tag = "Enemy";
+
+        // Garante que tem um Collider2D para a espada do jogador o detetar
+        if (GetComponent<Collider2D>() == null)
+        {
+            BoxCollider2D col = gameObject.AddComponent<BoxCollider2D>();
+            col.isTrigger = true;
+            Debug.Log("[BossBarata] BoxCollider2D adicionado automaticamente!");
+        }
+
+        // Garante que tem um Rigidbody2D (necessário para colisões 2D funcionarem)
+        if (GetComponent<Rigidbody2D>() == null)
+        {
+            Rigidbody2D rb = gameObject.AddComponent<Rigidbody2D>();
+            rb.bodyType = RigidbodyType2D.Kinematic; // Não cai nem é empurrado
+            Debug.Log("[BossBarata] Rigidbody2D adicionado automaticamente!");
+        }
+
         // Resolve referências: usa as externas se definidas, senão busca automaticamente
         anim = (animatorExterno != null) ? animatorExterno : GetComponent<Animator>();
+
+        // Desativar root motion para evitar que a barata ande sozinha para lados aleatórios por causa da animação
+        if (anim != null) anim.applyRootMotion = false;
 
         if (jogadorExterno != null)
         {
@@ -157,12 +187,81 @@ public class BossBarata : MonoBehaviour
         {
             GameObject p = GameObject.FindGameObjectWithTag("Player");
             if (p != null)
+            {
                 jogador = p.transform;
+            }
             else
-                Debug.LogWarning("[BossBarata] Nenhum GameObject com tag 'Player' encontrado na cena!");
+            {
+                // FALLBACK: Para testes rápidos sem configurar o Player
+                GameObject[] objetos = FindObjectsOfType<GameObject>();
+                foreach (GameObject obj in objetos)
+                {
+                    string n = obj.name.ToLower();
+                    // Ignora o próprio boss
+                    if ((n.Contains("square") || n.Contains("quadrado") || n.Contains("cube") || n.Contains("cubo")) && obj.transform != this.transform)
+                    {
+                        jogador = obj.transform;
+                        Debug.Log($"[BossBarata] Jogador definido automaticamente como '{obj.name}'!");
+                        break;
+                    }
+                }
+
+                if (jogador == null)
+                {
+                    Debug.LogWarning("[BossBarata] Nenhum jogador encontrado. O boss vai atacar a própria posição.");
+                }
+            }
         }
 
+        if (!esperarTriggerParaComecar)
+        {
+            IniciarBatalha();
+        }
+    }
+
+    public void IniciarBatalha()
+    {
+        if (batalhaIniciada || estaMorto) return;
+        batalhaIniciada = true;
+        
+        Debug.Log("[BossBarata] Batalha Iniciada!");
         StartCoroutine(CicloDeBatalha());
+
+        if (bossMorreSozinho)
+        {
+            StartCoroutine(RotinaMorteSozinho());
+        }
+    }
+
+    void Update()
+    {
+        // Debug para facilitar testes (dar dano com a tecla Espaço)
+        if (danoPeloEspaco && Input.GetKeyDown(KeyCode.Space))
+        {
+            TomarDano(5);
+        }
+    }
+
+    IEnumerator RotinaMorteSozinho()
+    {
+        while (!estaMorto)
+        {
+            yield return new WaitForSeconds(3f); // Tira 5 de vida a cada 3 segundos
+            if (!estaMorto)
+            {
+                Debug.Log("[BossBarata] TESTE: O boss perdeu vida sozinho!");
+                TomarDano(5);
+            }
+        }
+    }
+
+    private void TocarAnimacao(string triggerName)
+    {
+        // Só tenta tocar animação se o Animator existir e tiver um Controller válido (evita erros se for só um quadrado)
+        if (anim != null && anim.runtimeAnimatorController != null && anim.gameObject.activeInHierarchy)
+        {
+            anim.SetTrigger(triggerName);
+        }
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -172,7 +271,7 @@ public class BossBarata : MonoBehaviour
     /// <summary>Causa dano ao Boss. Chama este método de outros scripts (projéteis, espada, etc.).</summary>
     public void TomarDano(int dano)
     {
-        if (estaMorto) return;
+        if (estaMorto || invencivel) return;
 
         vidaAtual -= dano;
         vidaAtual = Mathf.Max(vidaAtual, 0); // Não passa de 0
@@ -188,8 +287,7 @@ public class BossBarata : MonoBehaviour
             audioSource.PlayOneShot(somDano);
 
         // Trigger de animação de hit
-        if (anim != null)
-            anim.SetTrigger("TomarDano");
+        TocarAnimacao("TomarDano");
 
         // Verifica transição para Fase 2
         if (!emFase2 && vidaAtual <= maxVida * limiarFase2)
@@ -213,8 +311,7 @@ public class BossBarata : MonoBehaviour
         tempoEntreAtaquesMax = Mathf.Max(1.5f, tempoEntreAtaquesMax * 0.6f);
         quantidadeDeMiniBaratas = Mathf.RoundToInt(quantidadeDeMiniBaratas * 1.5f);
 
-        if (anim != null)
-            anim.SetTrigger("Fase2");
+        TocarAnimacao("Fase2");
     }
 
     private void Morrer()
@@ -227,8 +324,7 @@ public class BossBarata : MonoBehaviour
 
         StopAllCoroutines();
 
-        if (anim != null)
-            anim.SetTrigger("Morrer");
+        TocarAnimacao("Morrer");
 
         // VFX de morte
         if (vfxMorte != null)
@@ -238,12 +334,12 @@ public class BossBarata : MonoBehaviour
         if (audioSource != null && somMorte != null)
             audioSource.PlayOneShot(somMorte);
 
-        // Desativa colisores
-        foreach (Collider col in GetComponentsInChildren<Collider>())
+        // Desativa colisores 2D
+        foreach (Collider2D col in GetComponentsInChildren<Collider2D>())
             col.enabled = false;
 
-        // Opcional: Destruir após 5 segundos
-        // Destroy(gameObject, 5f);
+        // Apaga o boss da cena após 2 segundos (tempo para a animação de morte)
+        Destroy(gameObject, 2f);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -263,12 +359,11 @@ public class BossBarata : MonoBehaviour
             if (estaMorto) yield break;
 
             // Escolhe e ESPERA o ataque terminar antes de continuar
-            int escolha = Random.Range(1, 4); // Escolhe 1, 2 ou 3
+            int escolha = Random.Range(1, 3); // Escolhe 1 ou 2
             switch (escolha)
             {
                 case 1: yield return StartCoroutine(Ataque1_EmboscadaSubterranea()); break;
                 case 2: yield return StartCoroutine(Ataque2_EnxameMiniBaratas());    break;
-                case 3: yield return StartCoroutine(Ataque3_TsunamiDeTerra());       break;
             }
         }
     }
@@ -281,35 +376,68 @@ public class BossBarata : MonoBehaviour
         currentState = BossState.Atacando;
         Debug.Log("[BossBarata] Ataque 1: Emboscada Subterrânea!");
 
-        if (anim != null) anim.SetTrigger("AtkEmboscada_Entrar");
+        TocarAnimacao("AtkEmboscada_Entrar");
         yield return new WaitForSeconds(tempoAnimacaoEntrar);
 
-        // Torna o boss visualmente invisível (se tiver MeshRenderer)
+        // Torna o boss visualmente invisível (se tiver MeshRenderer) e invencível
         SetVisibilidade(false);
+        invencivel = true;
 
-        // Grava posição do jogador como alvo (null-safe)
-        Vector3 posicaoAlvo = jogador != null
-            ? new Vector3(jogador.position.x, transform.position.y, jogador.position.z)
-            : transform.position;
+        // Calcula a altura do chão baseada nos pés do Boss antes de ele desaparecer
+        float nivelDoChaoY = transform.position.y;
+        Collider2D colBoss = GetComponent<Collider2D>();
+        if (colBoss != null)
+        {
+            nivelDoChaoY = colBoss.bounds.min.y;
+        }
 
-        // Spawna aviso visual
+        // Posição alvo inicial foca no X do jogador e no Y do chão
+        Vector3 posicaoAlvo = new Vector3(transform.position.x, nivelDoChaoY, 0f);
+        if (jogador != null)
+        {
+            posicaoAlvo = new Vector3(jogador.position.x, nivelDoChaoY, 0f);
+        }
+
+        // Spawna aviso visual no chão (debaixo do jogador)
         GameObject avisoAtual = null;
         if (avisoDeBuracoPrefab != null)
             avisoAtual = Instantiate(avisoDeBuracoPrefab, posicaoAlvo, Quaternion.identity);
 
-        yield return new WaitForSeconds(tempoAvisoEmboscada);
+        // FASE 1: O círculo segue apenas o Eixo X do jogador, mantendo-se preso ao chão
+        float tempoRestante = tempoAvisoSegueJogador;
+        while (tempoRestante > 0)
+        {
+            tempoRestante -= Time.deltaTime;
+            
+            // Segue o jogador apenas na horizontal (X)
+            if (jogador != null && avisoAtual != null)
+            {
+                avisoAtual.transform.position = new Vector3(jogador.position.x, nivelDoChaoY, 0f);
+            }
+            
+            yield return null; // Espera pela próxima frame
+        }
 
-        // Move o boss para o ponto alvo e destrói o aviso
-        transform.position = posicaoAlvo;
+        // Atualiza a posição final para onde o círculo parou
+        if (avisoAtual != null)
+            posicaoAlvo = avisoAtual.transform.position;
+        else if (jogador != null)
+            posicaoAlvo = jogador.position;
+
+        // FASE 2: O círculo para e avisa por mais Y segundos antes do ataque
+        yield return new WaitForSeconds(tempoAvisoParado);
+
+        // Destrói o aviso, mas O BOSS FICA NO MESMO LUGAR (não se move para posicaoAlvo)
         if (avisoAtual != null) Destroy(avisoAtual);
 
-        // Reaparece
+        // Reaparece (onde sempre esteve) e volta a poder levar dano
         SetVisibilidade(true);
+        invencivel = false;
 
-        if (anim != null) anim.SetTrigger("AtkEmboscada_Sair");
+        TocarAnimacao("AtkEmboscada_Sair");
 
-        // Causa dano em área ao emergir
-        CausarDanoEmAreaErupcao();
+        // Causa dano em área no ponto EXATO onde o aviso parou
+        CausarDanoEmAreaErupcao(posicaoAlvo);
 
         yield return new WaitForSeconds(tempoAnimacaoSair);
 
@@ -324,7 +452,7 @@ public class BossBarata : MonoBehaviour
         currentState = BossState.Atacando;
         Debug.Log("[BossBarata] Ataque 2: Enxame de Mini Baratas!");
 
-        if (anim != null) anim.SetTrigger("AtkEnxame_Carregar");
+        TocarAnimacao("AtkEnxame_Carregar");
         yield return new WaitForSeconds(0.8f);
 
         for (int i = 0; i < quantidadeDeMiniBaratas; i++)
@@ -353,56 +481,25 @@ public class BossBarata : MonoBehaviour
     }
 
     // ══════════════════════════════════════════════════════════════
-    // ATAQUE 3: ONDA DE TERRA (TSUNAMI)
-    // ══════════════════════════════════════════════════════════════
-    IEnumerator Ataque3_TsunamiDeTerra()
-    {
-        currentState = BossState.Atacando;
-        Debug.Log("[BossBarata] Ataque 3: Tsunami de Terra!");
-
-        if (anim != null) anim.SetTrigger("AtkTsunami_Carregar");
-        yield return new WaitForSeconds(1.5f);
-
-        if (anim != null) anim.SetTrigger("AtkTsunami_Lancar");
-        yield return new WaitForSeconds(0.2f);
-
-        if (ondaDeTerraPrefab != null && pontoSpawnOnda != null)
-        {
-            Instantiate(ondaDeTerraPrefab, pontoSpawnOnda.position, pontoSpawnOnda.rotation);
-        }
-        else
-        {
-            if (ondaDeTerraPrefab == null)
-                Debug.LogWarning("[BossBarata] 'ondaDeTerraPrefab' não está definido!");
-            if (pontoSpawnOnda == null)
-                Debug.LogWarning("[BossBarata] 'pontoSpawnOnda' não está definido!");
-        }
-
-        yield return new WaitForSeconds(2f);
-
-        currentState = BossState.Cooldown;
-    }
-
-    // ══════════════════════════════════════════════════════════════
     // HELPERS
     // ══════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// Causa dano em área ao redor do boss (chamado ao emergir da terra).
-    /// Pode também ser chamado por um Animation Event no Animator.
+    /// Causa dano em área 2D na posição indicada.
     /// </summary>
-    public void CausarDanoEmAreaErupcao()
+    public void CausarDanoEmAreaErupcao(Vector2 posicaoDano)
     {
-        Collider[] hits = Physics.OverlapSphere(transform.position, raioErupcao);
-        foreach (Collider hit in hits)
+        Collider2D[] hits = Physics2D.OverlapCircleAll(posicaoDano, raioErupcao);
+        foreach (Collider2D hit in hits)
         {
             if (hit.CompareTag("Player"))
             {
-                // Adapta ao teu script de vida do jogador:
-                // PlayerHealth ph = hit.GetComponent<PlayerHealth>();
-                // if (ph != null) ph.TomarDano(danoErupcao);
-
-                Debug.Log($"[BossBarata] Erupção causou {danoErupcao} de dano ao Jogador!");
+                PlayerMovement pm = hit.GetComponent<PlayerMovement>();
+                if (pm != null)
+                {
+                    pm.TakeDamage(danoErupcao);
+                    Debug.Log($"[BossBarata] Erupção causou {danoErupcao} de dano ao Jogador!");
+                }
             }
         }
     }
@@ -424,13 +521,6 @@ public class BossBarata : MonoBehaviour
         // Raio de erupção (Ataque 1)
         Gizmos.color = new Color(1f, 0.3f, 0f, 0.4f);
         Gizmos.DrawSphere(transform.position, raioErupcao);
-
-        // Ponto spawn onda
-        if (pontoSpawnOnda != null)
-        {
-            Gizmos.color = Color.yellow;
-            Gizmos.DrawSphere(pontoSpawnOnda.position, 0.3f);
-        }
 
         // Ponto spawn mini baratas
         if (pontoSpawnMiniBaratas != null)

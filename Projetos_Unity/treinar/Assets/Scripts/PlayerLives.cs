@@ -14,6 +14,7 @@ public class PlayerLives : MonoBehaviour
     }
     private void Update()
     {
+        if (Script_P == null) return; // Protege contra null
         HealthLogick(Script_P.currentLife,Script_P.maxLife);
 
     }
@@ -25,6 +26,8 @@ public class PlayerLives : MonoBehaviour
         }
         for (int i = 0; i < coracao.Length; i++)
         {
+            if (coracao[i] == null) continue; // Ignora slots vazios
+
             if(i < life)
             {
                 coracao[i].sprite = cheio;
