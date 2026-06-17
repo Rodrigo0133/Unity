@@ -502,8 +502,8 @@ public class UltimoBoss : MonoBehaviour
         StopAllCoroutines();
         Debug.Log("[Último Boss] Derrotado! O mundo está salvo.");
 
-        // Dropa montanhas de Plets
-        PletCoin.Spawn(transform.position, Random.Range(30, 50));
+        
+        GameDatabase.Instance.data.plets += 400;
 
         Destroy(gameObject, 1.5f);
     }

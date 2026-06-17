@@ -88,7 +88,7 @@ public class MiniBarata : MonoBehaviour
     private void Morrer()
     {
         Debug.Log("[MiniBarata] Morreu!");
-        PletCoin.Spawn(transform.position, Random.Range(1, 3));
+        GameDatabase.Instance.data.plets += 20;
         Destroy(gameObject);
     }
     [Header("Cooldown de Ataque")]

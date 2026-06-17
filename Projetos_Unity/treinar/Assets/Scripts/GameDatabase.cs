@@ -1,27 +1,20 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 [System.Serializable]
 public class SaveData
 {
-    // Last position & scene
     public string lastSceneName = "";
-    public float posX = 0f;
-    public float posY = 0f;
-    public float posZ = 0f;
+    public float posX = 0f, posY = 0f, posZ = 0f;
 
-    // Currency and items
     public int plets = 0;
-    public int swordLevel = 1; // 1 = Wooden, 2 = Iron, 3 = Golden, etc.
+    public int swordLevel = 1;
     public int keysCount = 0;
     public bool hasUnlockedThirdSlot = false;
 
-    // Amulets
     public List<string> ownedAmulets = new List<string>();
     public List<string> equippedAmulets = new List<string>();
 
-    // Settings
     public float masterVolume = 1f;
     public bool isFullscreen = true;
 }
@@ -30,7 +23,6 @@ public class GameDatabase : MonoBehaviour
 {
     public static GameDatabase Instance { get; private set; }
 
-    [Header("Current Save State")]
     public SaveData data = new SaveData();
 
     private const string SaveKey = "SaveDataKey";
@@ -49,9 +41,59 @@ public class GameDatabase : MonoBehaviour
         }
     }
 
+    // ==================== AMULETOS ====================
+
+    public void AddOwnedAmulet(string amuletName)
+    {
+        if (!data.ownedAmulets.Contains(amuletName))
+        {
+            data.ownedAmulets.Add(amuletName);
+            Debug.Log($"[GameDatabase] Amuleto adquirido: {amuletName}");
+        }
+    }
+
+    public bool EquipAmulet(string amuletName)
+    {
+        if (!data.ownedAmulets.Contains(amuletName))
+        {
+            Debug.LogWarning($"Não possui o amuleto: {amuletName}");
+            return false;
+        }
+        int maxSlots = data.hasUnlockedThirdSlot ? 3 : 2;
+        if (data.equippedAmulets.Count >= maxSlots)
+        {
+            Debug.LogWarning("Slots de amuletos cheios!");
+            return false;
+        }
+
+        if (!data.equippedAmulets.Contains(amuletName))
+        {
+            data.equippedAmulets.Add(amuletName);
+            Debug.Log($"[GameDatabase] Amuleto equipado: {amuletName}");
+            SaveGame();
+            return true;
+        }
+        return false;
+    }
+
+    public bool UnequipAmulet(string amuletName)
+    {
+        if (data.equippedAmulets.Remove(amuletName))
+        {
+            Debug.Log($"[GameDatabase] Amuleto desequipado: {amuletName}");
+            SaveGame();
+            return true;
+        }
+        return false;
+    }
+
+    public bool HasAmulet(string amuletName) => data.ownedAmulets.Contains(amuletName);
+    public bool IsEquipped(string amuletName) => data.equippedAmulets.Contains(amuletName);
+
+    
+
     public void SaveGame()
     {
-        // Try to update current player position if they exist in the scene
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
         {
@@ -64,7 +106,6 @@ public class GameDatabase : MonoBehaviour
         string json = JsonUtility.ToJson(data, true);
         PlayerPrefs.SetString(SaveKey, json);
         PlayerPrefs.Save();
-        Debug.Log("[GameDatabase] Jogo Guardado! JSON:\n" + json);
     }
 
     public void LoadGame()
@@ -72,18 +113,11 @@ public class GameDatabase : MonoBehaviour
         if (PlayerPrefs.HasKey(SaveKey))
         {
             string json = PlayerPrefs.GetString(SaveKey);
-            data = JsonUtility.FromJson<SaveData>(json);
-            Debug.Log("[GameDatabase] Jogo Carregado!");
+            data = JsonUtility.FromJson<SaveData>(json) ?? new SaveData();
         }
         else
         {
             data = new SaveData();
-            // Default setup: start with no amulets and basic sword
-            data.ownedAmulets = new List<string>();
-            data.equippedAmulets = new List<string>();
-            data.plets = 0;
-            data.swordLevel = 1;
-            Debug.Log("[GameDatabase] Sem save existente. Iniciando novo jogo.");
         }
     }
 
@@ -91,6 +125,5 @@ public class GameDatabase : MonoBehaviour
     {
         PlayerPrefs.DeleteKey(SaveKey);
         data = new SaveData();
-        Debug.Log("[GameDatabase] Save apagado.");
     }
 }

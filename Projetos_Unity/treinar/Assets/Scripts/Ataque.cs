@@ -17,17 +17,6 @@ public class Ataque : MonoBehaviour
         {
             bool acertou = false;
             bool isBoss = false;
-
-            // Tenta dar dano ao inimigo quadrado vermelho
-            InimigoIA_QuadradosVermelho enemy = other.GetComponent<InimigoIA_QuadradosVermelho>();
-            if (enemy != null)
-            {
-                enemy.TakeDamage();
-                alreadyHit.Add(other.gameObject);
-                Debug.Log($"[Ataque] Acertou no inimigo: {other.gameObject.name}");
-                acertou = true;
-            }
-
             // Tenta dar dano à mini barata
             MiniBarata miniBarata = other.GetComponent<MiniBarata>();
             if (miniBarata != null)

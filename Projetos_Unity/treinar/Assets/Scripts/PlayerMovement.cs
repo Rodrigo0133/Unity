@@ -1,5 +1,4 @@
 using System.Collections;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -8,7 +7,7 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private GameObject attackCollider;
 
     [Header("Movimento")]
-    [SerializeField] private float speed;
+    [SerializeField] private float speed = 3f;
     [SerializeField] private float jumpPower = 8f;
     [SerializeField] private float wallSlideSpeed = 1f;
     [SerializeField] private float gravityScale = 1.5f;
@@ -17,7 +16,7 @@ public class PlayerMovement : MonoBehaviour
     public KeyCode Sprint = KeyCode.LeftShift;
 
     [Header("Vida")]
-    public int maxLife;
+    public int maxLife = 3;
     public float currentLife;
 
     [Header("Invencibilidade")]
@@ -28,7 +27,7 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private string Nomedoproximolevel;
     [SerializeField] private LayerMask Portal;
 
-    [Header("Colis�es")]
+    [Header("Colisões")]
     private Rigidbody2D body;
     private BoxCollider2D boxCollider;
     [SerializeField] private LayerMask groundlayer;
@@ -42,13 +41,9 @@ public class PlayerMovement : MonoBehaviour
     private Vector3 respawnPosition;
     private bool isDead = false;
 
-    private PlayerLives playerLives;
-
-
-    public GameObject attackHitbox;
-    public float attackDuration = 0.3f;
-    public float attackCooldown = 0.6f; // Tempo entre ataques
-    private float nextAttackTime = 0f;  // Controlador do tempo do próximo ataque permitido
+    public GameObject attackRange;
+    public float attackCooldown = 0.6f;
+    private float nextAttackTime = 0f;
     public int damage = 25;
 
     private void Awake()
@@ -57,59 +52,56 @@ public class PlayerMovement : MonoBehaviour
         boxCollider = GetComponent<BoxCollider2D>();
         body.gravityScale = gravityScale;
 
-        // --- CORREÇÃO DO BUG DE FICAR PRESO NA PAREDE ---
-        // Cria um material de física sem atrito (Zero Friction) dinamicamente.
+        // Zero Friction + Edge Radius
         PhysicsMaterial2D mat = new PhysicsMaterial2D("ZeroFriction");
         mat.friction = 0f;
         mat.bounciness = 0f;
-        
-        if (boxCollider != null) 
+
+        if (boxCollider != null)
         {
             boxCollider.sharedMaterial = mat;
-            // A MAGIA ESTÁ AQUI: Arredonda os cantos da hitbox verde para ela deslizar nos blocos
-            // em vez de encravar nas fissuras afiadas do Tilemap!
             boxCollider.edgeRadius = 0.05f;
         }
         if (body != null) body.sharedMaterial = mat;
-        // ------------------------------------------------
 
-        respawnPosition = transform.position; // Guarda a posição exata onde colocaste o jogador na Unity
-
-        playerLives = GetComponentInParent<PlayerLives>();
-
+        respawnPosition = transform.position;
     }
 
-    public void Start()
+    private void Start()
     {
-        // Calculate maxLife from Amulets
-        maxLife = 3; // base life
+        maxLife = 3;
         if (AmuletDatabase.IsEquipped("vitalidade"))
-        {
             maxLife += 1;
-        }
 
-        // Set or clamp currentLife
-        if (currentLife <= 0 || currentLife > maxLife)
-        {
-            currentLife = maxLife;
-        }
+        currentLife = Mathf.Clamp(currentLife, 0, maxLife);
+        if (currentLife <= 0) currentLife = maxLife;
 
-        // Apply dynamic sword damage
-        if (GameDatabase.Instance != null)
-        {
-            int level = GameDatabase.Instance.data.swordLevel;
-            if (ShopManager.Instance != null)
-            {
-                damage = ShopManager.Instance.swordDamageValues[Mathf.Clamp(level, 1, 4)];
-            }
-        }
+        AtualizarDanoEspada();
     }
-        
 
-    [System.Obsolete]
+    public void AtualizarDanoEspada()
+    {
+        if (GameDatabase.Instance == null)
+        {
+            damage = 25;
+            return;
+        }
+
+        int level = GameDatabase.Instance.data.swordLevel;
+        switch (level)
+        {
+            case 1: damage = 25; break;
+            case 2: damage = 50; break;
+            case 3: damage = 75; break;
+            case 4: damage = 100; break;
+            default: damage = 25; break;
+        }
+        Debug.Log($"[Espada] Nível {level} → Dano: {damage}");
+    }
+
     private void Update()
     {
-        if (isDead) return; // Impede movimento/ataques se estiver morto
+        if (isDead) return;
 
         horizontalInput = Input.GetAxis("Horizontal");
 
@@ -117,27 +109,16 @@ public class PlayerMovement : MonoBehaviour
             transform.localScale = Vector3.one;
         else if (horizontalInput < -0.01f)
             transform.localScale = new Vector3(-1, 1, 1);
+
         animator.SetBool("Grounded", isGrounded() || isGrounded2());
         animator.SetFloat("Speed", Mathf.Abs(horizontalInput));
 
-
-
-        if (Input.GetKey(Sprint))
-        {
-            speed = GetModifiedSpeed(SprintValor);
-        }
-        else
-        {
-            speed = GetModifiedSpeed(3f);
-        }
+        speed = Input.GetKey(Sprint) ? SprintValor : 3f;
 
         if (wallJumpCooldown > 0.2f)
         {
             float velX = horizontalInput * speed;
 
-            // Previne o bug das "costuras" (seams) do Tilemap.
-            // Quando vais muito depressa (Shift) contra a parede, a hitbox encrava entre dois blocos.
-            // Para resolver isto, anulamos a força horizontal contra a parede se já estivermos a encostar nela.
             if (onWall() && !isGrounded())
             {
                 if (horizontalInput > 0 && transform.localScale.x > 0) velX = 0f;
@@ -152,158 +133,61 @@ public class PlayerMovement : MonoBehaviour
         }
 
         if (Input.GetKeyDown(KeyCode.Space))
-        {
             Jump();
-        }
-        
+
         if (Input.GetMouseButtonDown(0) && Time.time >= nextAttackTime)
         {
             nextAttackTime = Time.time + attackCooldown;
             animator.SetTrigger("Attack");
             StartCoroutine(Attack());
         }
+
         if (inPortal())
         {
-            Debug.Log("Entrou no portal");
             SceneManager.LoadScene(Nomedoproximolevel);
         }
-
-     
     }
 
-    [System.Obsolete]
     private void Jump()
     {
         if (isGrounded() || isGrounded2())
         {
             body.linearVelocity = new Vector2(body.linearVelocity.x, jumpPower);
         }
-        else if ((onWall() && !isGrounded()) || (onWall() && !isGrounded2()))
+        else if (onWall() && !isGrounded())
         {
             body.linearVelocity = new Vector2(-Mathf.Sign(transform.localScale.x) * wallJumpForce, jumpPower);
             wallJumpCooldown = 0;
         }
-        
-   
     }
 
-    public void SprintSpeed()
-    {
-        speed = SprintValor;
-    }
+    private bool isGrounded() => Physics2D.BoxCast(boxCollider.bounds.center, boxCollider.bounds.size, 0f, Vector2.down, 0.1f, groundlayer);
+    private bool isGrounded2() => Physics2D.BoxCast(boxCollider.bounds.center, boxCollider.bounds.size, 0f, Vector2.down, 0.1f, groundlayer2);
+    private bool onWall() => Physics2D.BoxCast(boxCollider.bounds.center, boxCollider.bounds.size, 0f, new Vector2(transform.localScale.x, 0), 0.1f, wallLayer);
 
-    private bool isGrounded()
-    {
-        return Physics2D.BoxCast(
-            boxCollider.bounds.center,
-            boxCollider.bounds.size,
-            0f,
-            Vector2.down,
-            0.1f,
-            groundlayer
-        );
-    }
-    private bool isGrounded2()
-    {
-        return Physics2D.BoxCast(
-            boxCollider.bounds.center,
-            boxCollider.bounds.size,
-            0f,
-            Vector2.down,
-            0.1f,
-            groundlayer2
-        );
-    }
-
-    private bool onWall() => Physics2D.BoxCast(
-            boxCollider.bounds.center,
-            boxCollider.bounds.size,
-            0f,
-            new Vector2(transform.localScale.x, 0),
-            0.1f,
-            wallLayer);
-
-    [System.Obsolete]
     public void TakeDamage(float damage)
     {
         if (isDead || isInvincible) return;
 
         currentLife -= damage;
-        currentLife = Mathf.Max(currentLife, 0); // Não deixa ficar negativo
-
-        Debug.Log($"[Jogador] Tomou {damage} de dano! Vida: {currentLife}/{maxLife}");
+        currentLife = Mathf.Max(currentLife, 0);
 
         if (currentLife <= 0)
-        {
             StartCoroutine(RotinaRespawn());
-        }
         else
-        {
-            // Invencibilidade temporária a cada hit para não ser metralhado
             StartCoroutine(InvincibilityCoroutine());
-        }
     }
 
-    private System.Collections.IEnumerator RotinaRespawn()
-    {
-        isDead = true;
-        Debug.Log("Jogador morreu! A reiniciar a fase...");
-        
-        // Para o jogador e desativa a física temporariamente
-        body.linearVelocity = Vector2.zero;
-        body.simulated = false; 
-
-        // Oculta o sprite do jogador para parecer que desapareceu/morreu
-        SpriteRenderer sr = GetComponent<SpriteRenderer>();
-        if (sr != null) sr.enabled = false;
-
-        yield return new WaitForSeconds(1.5f); // Atraso antes de reiniciar
-
-        // Reinicia a cena atual (Game Over a sério)
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-    }
-
-    private System.Collections.IEnumerator InvincibilityCoroutine()
-    {   
-        isInvincible = true;
-        float finalInvTime = invincibleTime;
-        if (AmuletDatabase.IsEquipped("escudo"))
-        {
-            finalInvTime += 1f; // +1s de invencibilidade
-        }
-        yield return new WaitForSeconds(finalInvTime);
-        isInvincible = false;
-    }
-
-    private float GetModifiedSpeed(float baseSpeed)
-    {
-        if (AmuletDatabase.IsEquipped("rapidez"))
-        {
-            return baseSpeed * 1.25f;
-        }
-        return baseSpeed;
-    }
-
-    public float GetCurrentDamage()
-    {
-        float finalDamage = damage;
-        if (AmuletDatabase.IsEquipped("furia") && (currentLife <= maxLife * 0.2f))
-        {
-            finalDamage *= 1.25f;
-            Debug.Log($"[Amuleto] Fúria Ativada! Dano aumentado: {finalDamage}");
-        }
-        return finalDamage;
-    }
-
+    // ==================== MÉTODO QUE FALTAVA ====================
     public void HitSpikes(float bounceForce)
     {
         if (isDead || isInvincible) return;
-        
+
         body.linearVelocity = new Vector2(body.linearVelocity.x, bounceForce);
         StartCoroutine(RotinaPiscarVermelho());
     }
 
-    private System.Collections.IEnumerator RotinaPiscarVermelho()
+    private IEnumerator RotinaPiscarVermelho()
     {
         SpriteRenderer sr = GetComponent<SpriteRenderer>();
         if (sr != null)
@@ -314,78 +198,50 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    public void AttackReset()
+    private IEnumerator RotinaRespawn()
     {
-        animator.ResetTrigger("Attack");
+        isDead = true;
+        body.linearVelocity = Vector2.zero;
+        body.simulated = false;
+
+        SpriteRenderer sr = GetComponent<SpriteRenderer>();
+        if (sr != null) sr.enabled = false;
+
+        yield return new WaitForSeconds(1.5f);
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
+
+    private IEnumerator InvincibilityCoroutine()
+    {
+        isInvincible = true;
+        float finalInvTime = invincibleTime;
+        if (AmuletDatabase.IsEquipped("escudo"))
+            finalInvTime += 1f;
+
+        yield return new WaitForSeconds(finalInvTime);
+        isInvincible = false;
+    }
+
+    private IEnumerator Attack()
+    {
+        if (attackRange != null) attackRange.SetActive(true);
+        yield return new WaitForSeconds(0.2f);
+        if (attackRange != null) attackRange.SetActive(false);
+    }
+
     private bool inPortal()
     {
-        Collider2D hit = Physics2D.OverlapBox(boxCollider.bounds.center, boxCollider.bounds.size, 0f, Portal);
-        return hit != null;
+        return Physics2D.OverlapBox(boxCollider.bounds.center, boxCollider.bounds.size, 0f, Portal) != null;
     }
 
-    public void ActivateAttackCollider()
+    public void ActivateAttackCollider() => attackCollider?.SetActive(true);
+    public void DeactivateAttackCollider() => attackCollider?.SetActive(false);
+
+    public float GetCurrentDamage()
     {
-        attackCollider.SetActive(true);
-    }
-
-    public void DeactivateAttackCollider()
-    {
-        attackCollider.SetActive(false);
-    }
-  
-    public GameObject attackRange; 
-
-   
-
-    IEnumerator Attack()
-    {
-        attackRange.SetActive(true);   
-        yield return new WaitForSeconds(0.2f); 
-        attackRange.SetActive(false);  
-    }
-
-    private void OnTriggerEnter2D(Collider2D other)
-    {
-        CheckEnemyBounce(other.gameObject, other.bounds);
-    }
-
-    private void OnCollisionEnter2D(Collision2D collision)
-    {
-        CheckEnemyBounce(collision.gameObject, collision.collider.bounds);
-    }
-
-    private void CheckEnemyBounce(GameObject enemyObject, Bounds enemyBounds)
-    {
-        // Se bateu num inimigo
-        if (enemyObject.CompareTag("Enemy"))
-        {
-            // Ignora Bosses (não permite pular em cima dos Bosses)
-            if (enemyObject.GetComponent<BossBarata>() != null || enemyObject.GetComponent<BossAnaoMitologico>() != null)
-                return;
-
-            // Só podemos pular em cima se estivermos a cair (velocidade Y negativa)
-            if (body.linearVelocity.y < 0.1f)
-            {
-                // Verifica se a base dos nossos pés está acima do centro do inimigo
-                if (boxCollider.bounds.min.y >= enemyBounds.center.y)
-                {
-                    // Faz o "Pulo do Mario" apenas como impulso (sem dar dano)
-                    body.linearVelocity = new Vector2(body.linearVelocity.x, jumpPower);
-
-                    // Fica temporariamente invencível para não levar dano do inimigo em que acabou de pisar
-                    StartCoroutine(JumpInvincibility());
-                }
-            }
-        }
-    }
-
-    private System.Collections.IEnumerator JumpInvincibility()
-    {
-        if (isInvincible) yield break; // Se já estiver invencível por outra razão, não mexe
-        
-        isInvincible = true;
-        yield return new WaitForSeconds(0.15f);
-        isInvincible = false;
+        float finalDamage = damage;
+        if (AmuletDatabase.IsEquipped("furia") && currentLife <= maxLife * 0.2f)
+            finalDamage *= 1.25f;
+        return finalDamage;
     }
 }

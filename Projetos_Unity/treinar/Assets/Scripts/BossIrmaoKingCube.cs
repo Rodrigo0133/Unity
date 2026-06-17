@@ -265,7 +265,7 @@ public class BossIrmaoKingCube : MonoBehaviour
         Debug.Log("[Boss Irmão King Cube] Derrotado com coragem!");
 
         // Dropa bastantes Plets como recompensa
-        PletCoin.Spawn(transform.position, Random.Range(10, 20));
+        GameDatabase.Instance.data.plets += 200;
 
         Destroy(gameObject, 1f);
     }
