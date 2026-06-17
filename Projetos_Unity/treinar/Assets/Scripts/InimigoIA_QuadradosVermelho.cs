@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.Video;
 
 public class InimigoIA_QuadradosVermelho : MonoBehaviour
@@ -9,7 +9,7 @@ public class InimigoIA_QuadradosVermelho : MonoBehaviour
     public bool isRight = true;
     public Transform GroundCheck;
     public LayerMask groundLayer;
-    private float VIDA = 3;
+    private float VIDA = 50f;
 
     [Header("Dano")]
     [SerializeField] public float dano;
@@ -77,6 +77,7 @@ public class InimigoIA_QuadradosVermelho : MonoBehaviour
 
     void Morrer()
     {
+        PletCoin.Spawn(transform.position, Random.Range(2, 4));
         Destroy(gameObject);
     }
 

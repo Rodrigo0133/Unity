@@ -73,11 +73,36 @@ public class PlayerMovement : MonoBehaviour
         if (body != null) body.sharedMaterial = mat;
         // ------------------------------------------------
 
-        currentLife = maxLife;
         respawnPosition = transform.position; // Guarda a posição exata onde colocaste o jogador na Unity
 
         playerLives = GetComponentInParent<PlayerLives>();
 
+    }
+
+    public void Start()
+    {
+        // Calculate maxLife from Amulets
+        maxLife = 3; // base life
+        if (AmuletDatabase.IsEquipped("vitalidade"))
+        {
+            maxLife += 1;
+        }
+
+        // Set or clamp currentLife
+        if (currentLife <= 0 || currentLife > maxLife)
+        {
+            currentLife = maxLife;
+        }
+
+        // Apply dynamic sword damage
+        if (GameDatabase.Instance != null)
+        {
+            int level = GameDatabase.Instance.data.swordLevel;
+            if (ShopManager.Instance != null)
+            {
+                damage = ShopManager.Instance.swordDamageValues[Mathf.Clamp(level, 1, 4)];
+            }
+        }
     }
         
 
@@ -99,11 +124,11 @@ public class PlayerMovement : MonoBehaviour
 
         if (Input.GetKey(Sprint))
         {
-            SprintSpeed();
+            speed = GetModifiedSpeed(SprintValor);
         }
         else
         {
-            speed = 3f;
+            speed = GetModifiedSpeed(3f);
         }
 
         if (wallJumpCooldown > 0.2f)
@@ -241,8 +266,33 @@ public class PlayerMovement : MonoBehaviour
     private System.Collections.IEnumerator InvincibilityCoroutine()
     {   
         isInvincible = true;
-        yield return new WaitForSeconds(invincibleTime);
+        float finalInvTime = invincibleTime;
+        if (AmuletDatabase.IsEquipped("escudo"))
+        {
+            finalInvTime += 1f; // +1s de invencibilidade
+        }
+        yield return new WaitForSeconds(finalInvTime);
         isInvincible = false;
+    }
+
+    private float GetModifiedSpeed(float baseSpeed)
+    {
+        if (AmuletDatabase.IsEquipped("rapidez"))
+        {
+            return baseSpeed * 1.25f;
+        }
+        return baseSpeed;
+    }
+
+    public float GetCurrentDamage()
+    {
+        float finalDamage = damage;
+        if (AmuletDatabase.IsEquipped("furia") && (currentLife <= maxLife * 0.2f))
+        {
+            finalDamage *= 1.25f;
+            Debug.Log($"[Amuleto] Fúria Ativada! Dano aumentado: {finalDamage}");
+        }
+        return finalDamage;
     }
 
     public void HitSpikes(float bounceForce)

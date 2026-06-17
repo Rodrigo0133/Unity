@@ -4,7 +4,7 @@ public class MiniBarata : MonoBehaviour
 {
     [Header("Atributos")]
     public float velocidade = 2f;
-    public int vida = 2;
+    public int vida = 25;
     public int danoAoBossQuandoMorre = 1;
     public int danoAoJogador = 1;
 
@@ -88,6 +88,7 @@ public class MiniBarata : MonoBehaviour
     private void Morrer()
     {
         Debug.Log("[MiniBarata] Morreu!");
+        PletCoin.Spawn(transform.position, Random.Range(1, 3));
         Destroy(gameObject);
     }
     [Header("Cooldown de Ataque")]

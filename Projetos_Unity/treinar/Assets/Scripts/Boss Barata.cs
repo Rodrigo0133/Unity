@@ -45,7 +45,7 @@ public class BossBarata : MonoBehaviour
     public bool esperarTriggerParaComecar = true;
 
     [Tooltip("Vida máxima do Boss.")]
-    public int maxVida = 35;
+    public int maxVida = 300;
 
     [Tooltip("Vida atual do Boss (preenchido automaticamente no Start).")]
     public int vidaAtual;

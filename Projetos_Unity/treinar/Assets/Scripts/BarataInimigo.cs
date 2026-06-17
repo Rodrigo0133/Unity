@@ -4,7 +4,7 @@ public class BarataInimigo : MonoBehaviour
 {
     [Header("Atributos")]
     public float velocidade = 2f;
-    public int vida = 2;
+    public int vida = 50;
     public int danoAoJogador = 1;
     public float distanciaAtivacao; // Distância para começar a seguir o jogador
 
@@ -131,6 +131,9 @@ public class BarataInimigo : MonoBehaviour
             rb.gravityScale = 2f;
             rb.linearVelocity = new Vector2(0f, 6f); // Força do pulo
         }
+
+        // Spawn coins upon death
+        PletCoin.Spawn(transform.position, Random.Range(2, 5));
 
         // Espera 1.5 segundo para vermos o pulo cair
         yield return new WaitForSeconds(1.5f);

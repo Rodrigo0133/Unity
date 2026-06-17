@@ -48,11 +48,24 @@ public class Ataque : MonoBehaviour
                 acertou = true;
             }
 
+            // Get dynamic player damage
+            float playerDamage = 25f;
+            PlayerMovement pm = GetComponentInParent<PlayerMovement>();
+            if (pm == null)
+            {
+                GameObject player = GameObject.FindGameObjectWithTag("Player");
+                if (player != null) pm = player.GetComponent<PlayerMovement>();
+            }
+            if (pm != null)
+            {
+                playerDamage = pm.GetCurrentDamage();
+            }
+
             // Tenta dar dano ao Boss Barata
             BossBarata boss = other.GetComponent<BossBarata>();
             if (boss != null)
             {
-                boss.TomarDano(1);
+                boss.TomarDano((int)playerDamage);
                 alreadyHit.Add(other.gameObject);
                 Debug.Log($"[Ataque] Acertou no Boss Barata! Vida restante: {boss.vidaAtual}/{boss.maxVida}");
                 acertou = true;
@@ -63,9 +76,31 @@ public class Ataque : MonoBehaviour
             BossAnaoMitologico bossAnao = other.GetComponent<BossAnaoMitologico>();
             if (bossAnao != null)
             {
-                bossAnao.TomarDano(1);
+                bossAnao.TomarDano((int)playerDamage);
                 alreadyHit.Add(other.gameObject);
                 Debug.Log($"[Ataque] Acertou no Boss Anão!");
+                acertou = true;
+                isBoss = true;
+            }
+
+            // Tenta dar dano ao Irmão do King Cube (3º Boss)
+            BossIrmaoKingCube bossIrmao = other.GetComponent<BossIrmaoKingCube>();
+            if (bossIrmao != null)
+            {
+                bossIrmao.TomarDano(playerDamage);
+                alreadyHit.Add(other.gameObject);
+                Debug.Log($"[Ataque] Acertou no Boss Irmão King Cube!");
+                acertou = true;
+                isBoss = true;
+            }
+
+            // Tenta dar dano ao Último Boss (Final Boss)
+            UltimoBoss ultimoBoss = other.GetComponent<UltimoBoss>();
+            if (ultimoBoss != null)
+            {
+                ultimoBoss.TomarDano(playerDamage);
+                alreadyHit.Add(other.gameObject);
+                Debug.Log($"[Ataque] Acertou no Último Boss!");
                 acertou = true;
                 isBoss = true;
             }
