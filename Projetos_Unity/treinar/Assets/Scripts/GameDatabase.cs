@@ -41,14 +41,12 @@ public class GameDatabase : MonoBehaviour
         }
     }
 
-    // ==================== AMULETOS ====================
-
     public void AddOwnedAmulet(string amuletName)
     {
         if (!data.ownedAmulets.Contains(amuletName))
         {
             data.ownedAmulets.Add(amuletName);
-            Debug.Log($"[GameDatabase] Amuleto adquirido: {amuletName}");
+            
         }
     }
 
@@ -56,20 +54,19 @@ public class GameDatabase : MonoBehaviour
     {
         if (!data.ownedAmulets.Contains(amuletName))
         {
-            Debug.LogWarning($"Não possui o amuleto: {amuletName}");
+            
             return false;
         }
         int maxSlots = data.hasUnlockedThirdSlot ? 3 : 2;
         if (data.equippedAmulets.Count >= maxSlots)
         {
-            Debug.LogWarning("Slots de amuletos cheios!");
+           
             return false;
         }
 
         if (!data.equippedAmulets.Contains(amuletName))
         {
             data.equippedAmulets.Add(amuletName);
-            Debug.Log($"[GameDatabase] Amuleto equipado: {amuletName}");
             SaveGame();
             return true;
         }
@@ -80,15 +77,21 @@ public class GameDatabase : MonoBehaviour
     {
         if (data.equippedAmulets.Remove(amuletName))
         {
-            Debug.Log($"[GameDatabase] Amuleto desequipado: {amuletName}");
             SaveGame();
             return true;
         }
         return false;
     }
 
-    public bool HasAmulet(string amuletName) => data.ownedAmulets.Contains(amuletName);
-    public bool IsEquipped(string amuletName) => data.equippedAmulets.Contains(amuletName);
+    public bool HasAmulet(string amuletName)
+    {
+        return data.ownedAmulets.Contains(amuletName);
+    }
+
+    public bool IsEquipped(string amuletName)
+    {
+        return data.equippedAmulets.Contains(amuletName);
+    }
 
     
 

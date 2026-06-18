@@ -2706,8 +2706,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 5.149994, y: -1.7599945}
-  m_SizeDelta: {x: 200, y: 50}
+  m_AnchoredPosition: {x: 29.68, y: -22.42}
+  m_SizeDelta: {x: 249.06, y: 91.31}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &686769555
 MonoBehaviour:
@@ -52879,11 +52879,9 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 128
   animator: {fileID: 1089871713}
-  attackHitbox: {fileID: 10843537}
-  attackDuration: 0.3
+  attackRange: {fileID: 10843537}
   attackCooldown: 0.6
   damage: 25
-  attackRange: {fileID: 10843537}
 --- !u!114 &1089871711
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -1,17 +1,37 @@
 using UnityEngine;
+using TMPro;
+using System.Collections;
 
 public class inventarioeloja : MonoBehaviour
-{
+{   
+    private bool Comprado = false;
+    private string amuletoAtual;
+    private bool maximo = false;
+    void Start()
+    {
+        if(GameDatabase.Instance.data.swordLevel == 4){
+            preco.text = "MAXIMO";
+            maximo = true;
+        }
+        else
+        {
+            preco.text = precos[GameDatabase.Instance.data.swordLevel - 1].ToString();
+        }
+
+    }
     [Header("Painéis")]
     public GameObject painel;
     public GameObject menu;
 
     [Header("Menu Armas")]
     public GameObject Menuarmas;
+    public TextMeshProUGUI preco;
+    private int[] precos = { 150, 200, 250, 350 };
 
     [Header("Menu Amuletos")]
     public GameObject amuletospainel;
     public GameObject Shopamuletos;
+   
 
     [Header("Amuletos")]
     public GameObject vitalidade;
@@ -19,9 +39,22 @@ public class inventarioeloja : MonoBehaviour
     public GameObject rapidez;
     public GameObject ganacia;
     public GameObject escudo;
+    public GameObject button;
+    public TextMeshProUGUI butao;
 
+    [Header("Texto")]
+    public TextMeshProUGUI texto;
+    public int segundos;
+    public TextMeshProUGUI vatalidade;
+    public TextMeshProUGUI feria;
+    public TextMeshProUGUI rrpidez;
+    public TextMeshProUGUI gfnacia;
+    public TextMeshProUGUI egcudo;
   
-
+    public void Abrirloja()
+    {
+        painel.SetActive(true);
+    }
     public void Sairdomenu()
     {
         painel.SetActive(false);
@@ -33,6 +66,27 @@ public class inventarioeloja : MonoBehaviour
         Menuarmas.SetActive(true);
     }
 
+    public void Melhorararma()
+    {
+        if (!maximo)
+        {
+            if (Temarmasdinheiro()){
+                GameDatabase.Instance.data.plets -= precos[GameDatabase.Instance.data.swordLevel - 1];
+                GameDatabase.Instance.data.swordLevel++;
+                if (GameDatabase.Instance.data.swordLevel >= 5)
+                {
+                    maximo = true;
+                    preco.text = "MAXIMO";
+                }
+                else
+                {
+                    preco.text = precos[GameDatabase.Instance.data.swordLevel - 1].ToString();
+                }
+                GameDatabase.Instance.SaveGame();
+                StartCoroutine(Melhorado(segundos));
+            }
+        }
+    }
     public void SairdaShopArmas()
     {
         Menuarmas.SetActive(false);
@@ -45,37 +99,166 @@ public class inventarioeloja : MonoBehaviour
         Shopamuletos.SetActive(true);
 
     }
+    public void SairdaShopAmuletos()
+    {
+        menu.SetActive(true);
+        Shopamuletos.SetActive(false);
+    }
 
    
 
     public void Vitalidade()
     {
+        button.SetActive(true);
         Shopamuletos.SetActive(false);
         vitalidade.SetActive(true);
+        Vitalidade_Verificar();
+        amuletoAtual = "Vitalidade";
     }
-
+    public void Vitalidade_Verificar()
+    {
+        if (GameDatabase.Instance.data.ownedAmulets.Contains("Vitalidade")) 
+        { 
+            Comprado = true; 
+            
+            if (GameDatabase.Instance.data.equippedAmulets.Contains("Vitalidade")) 
+            { 
+                vatalidade.text = "Desequipar"; 
+            } 
+            else 
+            { 
+                vatalidade.text = "Equipar"; 
+            } 
+        } 
+        else 
+        { 
+            Comprado = false; 
+            vatalidade.text = "Comprar por 250 plets!"; 
+        }
+    }
+    public void Furia_Verificar()
+    { 
+        if (GameDatabase.Instance.data.ownedAmulets.Contains("Furia")) 
+        { 
+            Comprado = true; 
+            
+            if (GameDatabase.Instance.data.equippedAmulets.Contains("Furia")) 
+            { 
+                feria.text = "Desequipar"; 
+            } 
+            else 
+            { 
+                feria.text = "Equipar"; 
+            } 
+        } 
+        else 
+        { 
+            Comprado = false; 
+            feria.text = "Comprar por 250 plets!"; 
+        }
+    }
+    public void Rapidez_Verificar()
+    {
+        if (GameDatabase.Instance.data.ownedAmulets.Contains("Rapidez")) 
+        { 
+            Comprado = true; 
+            
+            if (GameDatabase.Instance.data.equippedAmulets.Contains("Rapidez")) 
+            { 
+                rrpidez.text = "Desequipar"; 
+            } 
+            else 
+            { 
+                rrpidez.text = "Equipar"; 
+            } 
+        } 
+        else 
+        { 
+            Comprado = false; 
+            rrpidez.text = "Comprar por 250 plets!"; 
+        }
+    }
+    public void ganacia_vereficar()
+    {
+        if (GameDatabase.Instance.data.ownedAmulets.Contains("Ganacia")) 
+        { 
+            Comprado = true; 
+            
+            if (GameDatabase.Instance.data.equippedAmulets.Contains("Ganacia")) 
+            { 
+                gfnacia.text = "Desequipar"; 
+            } 
+            else 
+            { 
+                gfnacia.text = "Equipar"; 
+            } 
+        } 
+        else 
+        { 
+            Comprado = false; 
+            gfnacia.text = "Comprar por 250 plets!"; 
+        }
+    }
+    public void Escudo_vereficar()
+    {
+        if (GameDatabase.Instance.data.ownedAmulets.Contains("Escudo")) 
+        { 
+            Comprado = true; 
+            
+            if (GameDatabase.Instance.data.equippedAmulets.Contains("Escudo")) 
+            { 
+                egcudo.text = "Desequipar"; 
+            } 
+            else 
+            { 
+                egcudo.text = "Equipar"; 
+            } 
+        } 
+        else 
+        { 
+            Comprado = false; 
+            egcudo.text = "Comprar por 250 plets!"; 
+        }
+    }
     public void Rapidez()
     {
+        button.SetActive(true);
         Shopamuletos.SetActive(false);
         rapidez.SetActive(true);
+        Rapidez_Verificar();
+        amuletoAtual = "Rapidez";
     }
 
     public void Furia()
     {
+        button.SetActive(true);
         Shopamuletos.SetActive(false);
         furia.SetActive(true);
+        Furia_Verificar();
+        amuletoAtual = "Furia";
+    }
+    public void testes()
+    {
+        GameDatabase.Instance.data.plets+= 250;
+        Debug.Log("mais 250");
     }
 
     public void Escudo()
     {
+        button.SetActive(true);
         Shopamuletos.SetActive(false);
         escudo.SetActive(true);
+        Escudo_vereficar();
+        amuletoAtual = "Escudo";
     }
 
     public void Ganacia()
     {
+        button.SetActive(true);
         Shopamuletos.SetActive(false);
         ganacia.SetActive(true);
+        ganacia_vereficar();
+        amuletoAtual = "Ganacia";
     }
 
     
@@ -104,28 +287,24 @@ public class inventarioeloja : MonoBehaviour
     {
         painelamuleto.SetActive(false);
         Shopamuletos.SetActive(true);
+        button.SetActive(false);
     }
-
-
-
-    public void Comprar_Vitalidade(){
-         ComprarAmulet("Vitalidade");
-    }
-    public void Comprar_Ganacia(){
-    ComprarAmulet("Ganacia");
-    }
-    public void Comprar_Escudo()
+   private void ComprarOuEquipar(string id)
     {
-        ComprarAmulet("Escudo");
+        if (GameDatabase.Instance.data.ownedAmulets.Contains(id))
+        {
+            equiparedesequipar(id);
+        }
+        else
+        {
+            ComprarAmulet(id);
+        }
     }
-    public void Comprar_Rapidez()
-    {
-        ComprarAmulet("Rapidez");
-    }
-    public void Comprar_Furia()
-    {
-        ComprarAmulet("Furia");
-    }
+    public void Comprar_Vitalidade() => ComprarOuEquipar("Vitalidade");
+    public void Comprar_Ganacia()    => ComprarOuEquipar("Ganacia");
+    public void Comprar_Escudo()     => ComprarOuEquipar("Escudo");
+    public void Comprar_Rapidez()    => ComprarOuEquipar("Rapidez");
+    public void Comprar_Furia()      => ComprarOuEquipar("Furia");
 
     private void ComprarAmulet(string nomeAmulet)
     {
@@ -134,12 +313,41 @@ public class inventarioeloja : MonoBehaviour
             GameDatabase.Instance.data.plets -= 250;
             GameDatabase.Instance.AddOwnedAmulet(nomeAmulet);
             GameDatabase.Instance.SaveGame();
+            StartCoroutine(Dinheirosuficiente(segundos));
         }
         else
         {
-           Debug.Log($"ERROOOOOOO");
-           
+           StartCoroutine(Dinheiroinsuficiente(segundos));
+           GameDatabase.Instance.SaveGame();
         }
+    }
+    private IEnumerator Dinheiroinsuficiente(float segundos)
+    {
+        texto.text = "Não tens dinheiro suficiente!";
+        texto.gameObject.SetActive(true);
+        yield return new WaitForSeconds(segundos);
+        texto.gameObject.SetActive(false);
+    }
+    private IEnumerator Dinheirosuficiente(float segundos)
+    {
+        texto.text = "Amuleto Comprado!";
+        texto.gameObject.SetActive(true);
+        yield return new WaitForSeconds(segundos);
+        texto.gameObject.SetActive(false);
+    }
+    private IEnumerator Melhorado(float segundos)
+    {
+        texto.text = "Melhoração Comprada!";
+        texto.gameObject.SetActive(true);
+        yield return new WaitForSeconds(segundos);
+        texto.gameObject.SetActive(false);
+    }
+    private IEnumerator MaxiEquipado(float segundos)
+    {
+        texto.text= "Máximo de Amuletos Equipados";
+        texto.gameObject.SetActive(true);
+        yield return new WaitForSeconds(segundos);
+        texto.gameObject.SetActive(false);
     }
     public bool Temdinheiro()
     {
@@ -152,5 +360,44 @@ public class inventarioeloja : MonoBehaviour
             return false;
         }
         
+    }
+    public bool Temarmasdinheiro()
+    {
+        if(GameDatabase.Instance.data.plets >= precos[GameDatabase.Instance.data.swordLevel - 1])
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+    public void maximos()
+    {
+        preco.text = "MAXIMO";
+    }
+   
+    public void equiparedesequipar(string id)
+    {
+        if (GameDatabase.Instance.data.equippedAmulets.Contains(id))
+        {
+            GameDatabase.Instance.data.equippedAmulets.Remove(id);
+            GameDatabase.Instance.SaveGame();
+        }
+        else
+        {
+            
+            int limiteMaximo = GameDatabase.Instance.data.hasUnlockedThirdSlot ? 3 : 2;
+
+            if (GameDatabase.Instance.data.equippedAmulets.Count < limiteMaximo)
+            {
+                GameDatabase.Instance.data.equippedAmulets.Add(id);
+                GameDatabase.Instance.SaveGame();
+            }
+            else
+            {
+                StartCoroutine(MaxiEquipado(segundos));
+            }   
+        }
     }
 }
