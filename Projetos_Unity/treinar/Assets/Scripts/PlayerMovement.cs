@@ -70,12 +70,8 @@ public class PlayerMovement : MonoBehaviour
 
     private void Start()
     {
-        maxLife = 3;
-        if (AmuletDatabase.IsEquipped("vitalidade"))
-            maxLife += 1;
-
-        currentLife = Mathf.Clamp(currentLife, 0, maxLife);
-        if (currentLife <= 0) currentLife = maxLife;
+        AtualizarEfeitosAmuletos();
+        RestaurarPosicaoGuardada();
 
         AtualizarDanoEspada();
         DesativarObjetoDeAtaque(attackRange);
@@ -123,7 +119,8 @@ public class PlayerMovement : MonoBehaviour
         animator.SetBool("Grounded", isGrounded() || isGrounded2());
         animator.SetFloat("Speed", Mathf.Abs(horizontalInput));
 
-        speed = Input.GetKey(Sprint) ? SprintValor : 3f;
+        float velocidadeBase = Input.GetKey(Sprint) ? SprintValor : 3f;
+        speed = velocidadeBase * GetSpeedMultiplier();
 
         if (wallJumpCooldown > 0.2f)
         {
@@ -246,7 +243,7 @@ public class PlayerMovement : MonoBehaviour
     {
         isInvincible = true;
         float finalInvTime = invincibleTime;
-        if (AmuletDatabase.IsEquipped("escudo"))
+        if (AmuletDatabase.IsEquipped("Escudo"))
             finalInvTime += 1f;
 
         yield return new WaitForSeconds(finalInvTime);
@@ -304,8 +301,46 @@ public class PlayerMovement : MonoBehaviour
     public float GetCurrentDamage()
     {
         float finalDamage = damage;
-        if (AmuletDatabase.IsEquipped("furia") && currentLife <= maxLife * 0.2f)
-            finalDamage *= 1.25f;
+        if (AmuletDatabase.IsEquipped("Furia"))
+            finalDamage *= 1.10f;
         return finalDamage;
+    }
+
+    public void AtualizarEfeitosAmuletos()
+    {
+        int vidaMaximaAnterior = maxLife;
+
+        maxLife = 3;
+        if (AmuletDatabase.IsEquipped("Vitalidade"))
+            maxLife += 1;
+
+        if (currentLife <= 0)
+        {
+            currentLife = maxLife;
+        }
+        else
+        {
+            if (maxLife > vidaMaximaAnterior && currentLife >= vidaMaximaAnterior)
+                currentLife = maxLife;
+
+            currentLife = Mathf.Clamp(currentLife, 0, maxLife);
+        }
+    }
+
+    private float GetSpeedMultiplier()
+    {
+        return AmuletDatabase.IsEquipped("Rapidez") ? 1.10f : 1f;
+    }
+
+    private void RestaurarPosicaoGuardada()
+    {
+        if (GameDatabase.Instance == null)
+            return;
+
+        Vector3 posicaoGuardada;
+        string cenaAtual = SceneManager.GetActiveScene().name;
+
+        if (GameDatabase.Instance.TryGetSavedPlayerPosition(cenaAtual, out posicaoGuardada))
+            transform.position = posicaoGuardada;
     }
 }

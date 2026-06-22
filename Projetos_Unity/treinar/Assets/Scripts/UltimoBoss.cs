@@ -488,7 +488,7 @@ public class UltimoBoss : MonoBehaviour
         StopAllCoroutines();
         Debug.Log("[Ultimo Boss] Derrotado! O mundo esta salvo.");
 
-        GameDatabase.Instance.data.plets += 400;
+        GameDatabase.Instance.AddPlets(400);
         TrocaCenaBoss.CarregarProximaCena();
         
         Destroy(gameObject, 1.5f);

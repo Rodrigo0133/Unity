@@ -2989,7 +2989,6 @@ GameObject:
   m_Component:
   - component: {fileID: 615533814}
   - component: {fileID: 615533815}
-  - component: {fileID: 615533816}
   m_Layer: 0
   m_Name: Gamemanagemnt
   m_TagString: Untagged
@@ -3043,29 +3042,6 @@ MonoBehaviour:
   rrpidez: {fileID: 1757385736}
   gfnacia: {fileID: 879865997}
   egcudo: {fileID: 339002979}
---- !u!114 &615533816
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 615533813}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: befe8632b9986eb47b008ce6f12c0c7b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::GameDatabase
-  data:
-    lastSceneName: 
-    posY: 0
-    plets: 0
-    swordLevel: 1
-    keysCount: 0
-    hasUnlockedThirdSlot: 0
-    ownedAmulets: []
-    equippedAmulets: []
-    masterVolume: 1
-    isFullscreen: 1
 --- !u!1 &623184455
 GameObject:
   m_ObjectHideFlags: 0
@@ -8638,6 +8614,61 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!1 &1754536671
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1754536673}
+  - component: {fileID: 1754536672}
+  m_Layer: 0
+  m_Name: Gamedatabase
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1754536672
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1754536671}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: befe8632b9986eb47b008ce6f12c0c7b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GameDatabase
+  data:
+    lastSceneName: 
+    posY: 0
+    plets: 0
+    swordLevel: 1
+    keysCount: 0
+    hasUnlockedThirdSlot: 0
+    ownedAmulets: []
+    equippedAmulets: []
+    masterVolume: 1
+    isFullscreen: 1
+--- !u!4 &1754536673
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1754536671}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 130.60512, y: 25.31268, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1757385733
 GameObject:
   m_ObjectHideFlags: 0
@@ -27285,3 +27316,4 @@ SceneRoots:
   - {fileID: 8170250149105848677}
   - {fileID: 310945934}
   - {fileID: 2017511283}
+  - {fileID: 1754536673}

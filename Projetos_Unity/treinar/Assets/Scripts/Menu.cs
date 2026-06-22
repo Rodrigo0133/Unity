@@ -7,15 +7,22 @@ public class Menu : MonoBehaviour
     [SerializeField]private GameObject painelOpcoes;
     public void Jogar()
     {
-        SceneManager.LoadScene(Nome_do_Level_do_jogo);
+        string cenaParaCarregar = Nome_do_Level_do_jogo;
+
+        if (GameDatabase.Instance != null)
+            cenaParaCarregar = GameDatabase.Instance.GetSceneToLoad(Nome_do_Level_do_jogo);
+        else
+            cenaParaCarregar = GameDatabase.GetSavedSceneToLoad(Nome_do_Level_do_jogo);
+
+        SceneManager.LoadScene(cenaParaCarregar);
     }
-    public void Opções()
+    public void OpÃ§Ãµes()
     {
         PainelMenuInicial.SetActive(false);
         painelOpcoes.SetActive(true);
 
     }
-    public void FecharOpções()
+    public void FecharOpÃ§Ãµes()
     {
         painelOpcoes.SetActive(false);
         PainelMenuInicial.SetActive(true);

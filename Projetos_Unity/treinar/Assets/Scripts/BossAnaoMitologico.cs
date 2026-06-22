@@ -124,7 +124,7 @@
 
             if (animAnao != null) animAnao.SetTrigger("Morrer");
             if (animPeGrande != null) animPeGrande.SetTrigger("Morrer");
-            GameDatabase.Instance.data.plets += 200;
+            GameDatabase.Instance.AddPlets(200);
             TrocaCenaBoss.CarregarProximaCena();
             Destroy(gameObject, 2f);
             if (peGrandeGameObject != null) Destroy(peGrandeGameObject, 2f);

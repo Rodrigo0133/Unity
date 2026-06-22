@@ -249,7 +249,7 @@ public class BossIrmaoKingCube : MonoBehaviour
         StopAllCoroutines();
         Debug.Log("[Boss Irmao King Cube] Derrotado com coragem!");
 
-        GameDatabase.Instance.data.plets += 200;
+        GameDatabase.Instance.AddPlets(200);
         TrocaCenaBoss.CarregarProximaCena();
         Destroy(gameObject, 1f);
     }

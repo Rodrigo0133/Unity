@@ -316,7 +316,7 @@ public class BossBarata : MonoBehaviour
         Debug.Log("[BossBarata] Boss Barata foi derrotado!");
 
         StopAllCoroutines();
-        GameDatabase.Instance.data.plets += 200;
+        GameDatabase.Instance.AddPlets(200);
         TrocaCenaBoss.CarregarProximaCena();
         TocarAnimacao("Morrer");
 

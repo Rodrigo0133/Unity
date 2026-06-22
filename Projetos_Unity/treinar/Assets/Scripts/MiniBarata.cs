@@ -91,7 +91,7 @@ public class MiniBarata : MonoBehaviour
     private void Morrer()
     {
         Debug.Log("[MiniBarata] Morreu!");
-        GameDatabase.Instance.data.plets += 20;
+        GameDatabase.Instance.AddPlets(20);
         Destroy(gameObject);
     }
     [Header("Cooldown de Ataque")]

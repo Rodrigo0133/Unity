@@ -406,5 +406,9 @@ public class inventarioeloja : MonoBehaviour
                 StartCoroutine(MaxiEquipado(segundos));
             }   
         }
+
+        PlayerMovement player = FindObjectOfType<PlayerMovement>();
+        if (player != null)
+            player.AtualizarEfeitosAmuletos();
     }
 }

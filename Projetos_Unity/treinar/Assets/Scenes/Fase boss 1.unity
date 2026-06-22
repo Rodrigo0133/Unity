@@ -570,8 +570,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BossBarata
   esperarTriggerParaComecar: 1
-  maxVida: 150
-  vidaAtual: 150
+  maxVida: 400
+  vidaAtual: 400
   currentState: 0
   animatorExterno: {fileID: 0}
   jogadorExterno: {fileID: 0}

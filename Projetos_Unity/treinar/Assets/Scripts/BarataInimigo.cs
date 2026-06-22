@@ -82,8 +82,7 @@ public class BarataInimigo : MonoBehaviour
         // Recompensa
         if (GameDatabase.Instance != null && GameDatabase.Instance.data != null)
         {
-            GameDatabase.Instance.data.plets += 60; // 20 + 40
-            GameDatabase.Instance.SaveGame();
+            GameDatabase.Instance.AddPlets(60); // 20 + 40
         }
 
         StartCoroutine(RotinaMorte());
