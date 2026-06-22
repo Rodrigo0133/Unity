@@ -7,6 +7,7 @@ public class MiniBarata : MonoBehaviour
     public int vida = 25;
     public int danoAoBossQuandoMorre = 1;
     public int danoAoJogador = 1;
+    public bool spriteOlhaParaDireita = true;
 
     private Transform jogador;
     private BossBarata boss;
@@ -64,6 +65,8 @@ public class MiniBarata : MonoBehaviour
     {
         if (jogador != null)
         {
+            VirarParaJogador();
+
             // Persegue o jogador lentamente (2D)
             transform.position = Vector2.MoveTowards(transform.position, jogador.position, velocidade * Time.deltaTime);
         }
@@ -126,5 +129,17 @@ public class MiniBarata : MonoBehaviour
                 Debug.Log($"[MiniBarata] Causou {danoAoJogador} de dano ao jogador! (Física)");
             }
         }
+    }
+
+    private void VirarParaJogador()
+    {
+        if (jogador == null) return;
+
+        float direcao = jogador.position.x >= transform.position.x ? 1f : -1f;
+        if (!spriteOlhaParaDireita) direcao *= -1f;
+
+        Vector3 escala = transform.localScale;
+        escala.x = Mathf.Abs(escala.x) * direcao;
+        transform.localScale = escala;
     }
 }

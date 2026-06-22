@@ -45,6 +45,7 @@ public class PlayerMovement : MonoBehaviour
     public float attackCooldown = 0.6f;
     private float nextAttackTime = 0f;
     public int damage = 25;
+    public const int MaxSwordLevel = 4;
 
     private void Awake()
     {
@@ -77,6 +78,9 @@ public class PlayerMovement : MonoBehaviour
         if (currentLife <= 0) currentLife = maxLife;
 
         AtualizarDanoEspada();
+        DesativarObjetoDeAtaque(attackRange);
+        if (attackCollider != attackRange)
+            DesativarObjetoDeAtaque(attackCollider);
     }
 
     public void AtualizarDanoEspada()
@@ -87,16 +91,22 @@ public class PlayerMovement : MonoBehaviour
             return;
         }
 
-        int level = GameDatabase.Instance.data.swordLevel;
-        switch (level)
-        {
-            case 1: damage = 25; break;
-            case 2: damage = 50; break;
-            case 3: damage = 75; break;
-            case 4: damage = 100; break;
-            default: damage = 25; break;
-        }
+        int level = Mathf.Clamp(GameDatabase.Instance.data.swordLevel, 1, MaxSwordLevel);
+        GameDatabase.Instance.data.swordLevel = level;
+        damage = GetSwordDamage(level);
         Debug.Log($"[Espada] Nível {level} → Dano: {damage}");
+    }
+
+    public static int GetSwordDamage(int level)
+    {
+        switch (Mathf.Clamp(level, 1, MaxSwordLevel))
+        {
+            case 1: return 25;
+            case 2: return 50;
+            case 3: return 75;
+            case 4: return 100;
+            default: return 25;
+        }
     }
 
     private void Update()
@@ -118,11 +128,16 @@ public class PlayerMovement : MonoBehaviour
         if (wallJumpCooldown > 0.2f)
         {
             float velX = horizontalInput * speed;
+            int wallDirection = GetWallDirection();
+            bool grounded = isGrounded() || isGrounded2();
 
-            if (onWall() && !isGrounded())
+            if (wallDirection != 0 && !grounded)
             {
-                if (horizontalInput > 0 && transform.localScale.x > 0) velX = 0f;
-                if (horizontalInput < 0 && transform.localScale.x < 0) velX = 0f;
+                if (Mathf.Sign(horizontalInput) == wallDirection)
+                    velX = 0f;
+
+                if (body.linearVelocity.y < -wallSlideSpeed)
+                    body.linearVelocity = new Vector2(body.linearVelocity.x, -wallSlideSpeed);
             }
 
             body.linearVelocity = new Vector2(velX, body.linearVelocity.y);
@@ -154,16 +169,32 @@ public class PlayerMovement : MonoBehaviour
         {
             body.linearVelocity = new Vector2(body.linearVelocity.x, jumpPower);
         }
-        else if (onWall() && !isGrounded())
+        else if (onWall())
         {
-            body.linearVelocity = new Vector2(-Mathf.Sign(transform.localScale.x) * wallJumpForce, jumpPower);
+            int wallDirection = GetWallDirection();
+            if (wallDirection == 0)
+                wallDirection = transform.localScale.x > 0 ? 1 : -1;
+
+            body.linearVelocity = new Vector2(-wallDirection * wallJumpForce, jumpPower);
             wallJumpCooldown = 0;
         }
     }
 
     private bool isGrounded() => Physics2D.BoxCast(boxCollider.bounds.center, boxCollider.bounds.size, 0f, Vector2.down, 0.1f, groundlayer);
     private bool isGrounded2() => Physics2D.BoxCast(boxCollider.bounds.center, boxCollider.bounds.size, 0f, Vector2.down, 0.1f, groundlayer2);
-    private bool onWall() => Physics2D.BoxCast(boxCollider.bounds.center, boxCollider.bounds.size, 0f, new Vector2(transform.localScale.x, 0), 0.1f, wallLayer);
+    private bool onWall() => GetWallDirection() != 0;
+
+    private int GetWallDirection()
+    {
+        LayerMask activeWallLayer = wallLayer.value != 0 ? wallLayer : groundlayer | groundlayer2;
+        bool touchingRight = Physics2D.BoxCast(boxCollider.bounds.center, boxCollider.bounds.size, 0f, Vector2.right, 0.1f, activeWallLayer);
+        bool touchingLeft = Physics2D.BoxCast(boxCollider.bounds.center, boxCollider.bounds.size, 0f, Vector2.left, 0.1f, activeWallLayer);
+
+        if (touchingRight && !touchingLeft) return 1;
+        if (touchingLeft && !touchingRight) return -1;
+        if (touchingRight && touchingLeft) return transform.localScale.x > 0 ? 1 : -1;
+        return 0;
+    }
 
     public void TakeDamage(float damage)
     {
@@ -224,9 +255,15 @@ public class PlayerMovement : MonoBehaviour
 
     private IEnumerator Attack()
     {
-        if (attackRange != null) attackRange.SetActive(true);
+        AtivarObjetoDeAtaque(attackRange);
+        if (attackCollider != attackRange)
+            AtivarObjetoDeAtaque(attackCollider);
+
         yield return new WaitForSeconds(0.2f);
-        if (attackRange != null) attackRange.SetActive(false);
+
+        DesativarObjetoDeAtaque(attackRange);
+        if (attackCollider != attackRange)
+            DesativarObjetoDeAtaque(attackCollider);
     }
 
     private bool inPortal()
@@ -234,8 +271,35 @@ public class PlayerMovement : MonoBehaviour
         return Physics2D.OverlapBox(boxCollider.bounds.center, boxCollider.bounds.size, 0f, Portal) != null;
     }
 
-    public void ActivateAttackCollider() => attackCollider?.SetActive(true);
-    public void DeactivateAttackCollider() => attackCollider?.SetActive(false);
+    public void ActivateAttackCollider() => AtivarObjetoDeAtaque(attackCollider);
+    public void DeactivateAttackCollider() => DesativarObjetoDeAtaque(attackCollider);
+
+    private void AtivarObjetoDeAtaque(GameObject objetoAtaque)
+    {
+        if (objetoAtaque == null) return;
+
+        objetoAtaque.SetActive(true);
+        Ataque ataque = objetoAtaque.GetComponent<Ataque>();
+        if (ataque == null)
+            ataque = objetoAtaque.GetComponentInChildren<Ataque>(true);
+
+        if (ataque != null)
+            ataque.AtivarAtaque();
+    }
+
+    private void DesativarObjetoDeAtaque(GameObject objetoAtaque)
+    {
+        if (objetoAtaque == null) return;
+
+        Ataque ataque = objetoAtaque.GetComponent<Ataque>();
+        if (ataque == null)
+            ataque = objetoAtaque.GetComponentInChildren<Ataque>(true);
+
+        if (ataque != null)
+            ataque.DesativarAtaque();
+
+        objetoAtaque.SetActive(false);
+    }
 
     public float GetCurrentDamage()
     {

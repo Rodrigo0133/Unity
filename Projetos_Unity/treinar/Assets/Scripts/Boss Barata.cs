@@ -1,18 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-
-/// <summary>
-/// Boss Barata - Máquina de estados completa com 3 ataques, sistema de vida,
-/// fase de fúria, e IA totalmente funcional.
-/// 
-/// COMO USAR:
-///   1. Arrasta este script para o GameObject do Boss no Inspector.
-///   2. Preenche os campos públicos marcados com [Header].
-///   3. O campo "jogador" e "anim" são preenchidos automaticamente se não definidos.
-///   4. Certifica-te que o Player tem a tag "Player".
-///   5. Para causar dano ao boss, chama: boss.GetComponent<BossBarata>().TomarDano(valor);
-/// </summary>
+using UnityEngine.SceneManagement;
 public class BossBarata : MonoBehaviour
 {
     // ══════════════════════════════════════════════════════════════
@@ -27,19 +16,16 @@ public class BossBarata : MonoBehaviour
         Morto
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // CAMPOS PRIVADOS ESSENCIAIS (declarados aqui para não haver erros)
-    // ══════════════════════════════════════════════════════════════
+    
     private Animator anim;
     private Transform jogador;
     private bool estaMorto = false;
     private bool emFase2 = false;
     private bool invencivel = false;
     private bool batalhaIniciada = false;
+    public bool EstaMorto => estaMorto;
 
-    // ══════════════════════════════════════════════════════════════
-    // INSPECTOR - STATUS
-    // ══════════════════════════════════════════════════════════════
+    
     [Header("═══ STATUS DO BOSS ═══")]
     [Tooltip("Se verdadeiro, o boss só começa a atacar quando IniciarBatalha() for chamado.")]
     public bool esperarTriggerParaComecar = true;
@@ -53,19 +39,16 @@ public class BossBarata : MonoBehaviour
     [Tooltip("Estado actual do Boss (útil para debug no Inspector).")]
     public BossState currentState = BossState.Idle;
 
-    // ══════════════════════════════════════════════════════════════
-    // INSPECTOR - REFERÊNCIAS
-    // ══════════════════════════════════════════════════════════════
+    
     [Header("═══ REFERÊNCIAS ═══")]
     [Tooltip("Animator do Boss. Preenchido automaticamente se deixado vazio.")]
     public Animator animatorExterno;
 
     [Tooltip("Transform do Jogador. Preenchido automaticamente pela tag 'Player' se deixado vazio.")]
     public Transform jogadorExterno;
+    public bool spriteOlhaParaDireita = true;
 
-    // ══════════════════════════════════════════════════════════════
-    // INSPECTOR - IA / TIMING
-    // ══════════════════════════════════════════════════════════════
+   
     [Header("═══ IA / TIMING ═══")]
     [Tooltip("Tempo mínimo de espera entre ataques (Fase 1).")]
     public float tempoEntreAtaquesMin = 2f;
@@ -77,9 +60,7 @@ public class BossBarata : MonoBehaviour
     [Range(0f, 1f)]
     public float limiarFase2 = 0.25f;
 
-    // ══════════════════════════════════════════════════════════════
-    // INSPECTOR - ATAQUE 1: EMBOSCADA SUBTERRÂNEA
-    // ══════════════════════════════════════════════════════════════
+    
     [Header("═══ ATAQUE 1: EMBOSCADA ═══")]
     [Tooltip("Prefab visual de aviso no chão (ex: círculo vermelho).")]
     public GameObject avisoDeBuracoPrefab;
@@ -102,9 +83,7 @@ public class BossBarata : MonoBehaviour
     [Tooltip("Dano causado pela erupção.")]
     public int danoErupcao = 1;
 
-    // ══════════════════════════════════════════════════════════════
-    // INSPECTOR - ATAQUE 2: ENXAME DE MINI BARATAS
-    // ══════════════════════════════════════════════════════════════
+    
     [Header("═══ ATAQUE 2: ENXAME ═══")]
     [Tooltip("Prefab da mini barata.")]
     public GameObject miniBarataPrefab;
@@ -235,6 +214,8 @@ public class BossBarata : MonoBehaviour
 
     void Update()
     {
+        VirarParaJogador();
+
         // Debug para facilitar testes (dar dano com a tecla Espaço)
         if (danoPeloEspaco && Input.GetKeyDown(KeyCode.Space))
         {
@@ -262,6 +243,18 @@ public class BossBarata : MonoBehaviour
         {
             anim.SetTrigger(triggerName);
         }
+    }
+
+    private void VirarParaJogador()
+    {
+        if (estaMorto || jogador == null) return;
+
+        float direcao = jogador.position.x >= transform.position.x ? 1f : -1f;
+        if (!spriteOlhaParaDireita) direcao *= -1f;
+
+        Vector3 escala = transform.localScale;
+        escala.x = Mathf.Abs(escala.x) * direcao;
+        transform.localScale = escala;
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -323,7 +316,8 @@ public class BossBarata : MonoBehaviour
         Debug.Log("[BossBarata] Boss Barata foi derrotado!");
 
         StopAllCoroutines();
-
+        GameDatabase.Instance.data.plets += 200;
+        TrocaCenaBoss.CarregarProximaCena();
         TocarAnimacao("Morrer");
 
         // VFX de morte
@@ -333,12 +327,9 @@ public class BossBarata : MonoBehaviour
         // SFX de morte
         if (audioSource != null && somMorte != null)
             audioSource.PlayOneShot(somMorte);
-
-        // Desativa colisores 2D
         foreach (Collider2D col in GetComponentsInChildren<Collider2D>())
             col.enabled = false;
-
-        // Apaga o boss da cena após 2 segundos (tempo para a animação de morte)
+        
         Destroy(gameObject, 2f);
     }
 

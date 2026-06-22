@@ -1,71 +1,65 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
-/// <summary>
-/// ÚLTIMO BOSS (FINAL BOSS) - DUAS ETAPAS DE BATALHA
-/// 
-/// --- DESCRIÇÃO DETALHADA DOS ATAQUES ---
-/// 
-/// === 1ª ETAPA ===
-/// 1. Chuva de Bolas de Fogo:
-///    O Boss atira bolas de fogo vertiginosamente para cima. Instantes depois, surgem indicadores 
-///    de área (AOE) vermelhos no chão. As bolas de fogo caem do céu nestas áreas, dando dano 
-///    se o jogador estiver nelas.
-/// 2. Onda Repulsora de Curto Alcance:
-///    Se o jogador permanecer perto do Boss por muito tempo (ex: mais de 2 segundos), o Boss 
-///    liberta imediatamente uma onda de choque de curto alcance (AOE) que empurra o jogador 
-///    e causa dano, impedindo que o jogador abuse de ataques corpo a corpo.
-/// 
-/// === 2ª ETAPA (Boss cresce e fica irritado) ===
-/// 3. Lançamento de Correntes:
-///    O Boss dispara correntes afiadas na horizontal que varrem o mapa rente ao chão. 
-///    O jogador deve saltar para desviar.
-/// 4. Invocação de Cabeça de Líder Supremo:
-///    O Boss invoca aleatoriamente a cabeça flutuante de um dos seus 3 Líderes Supremos. 
-///    A cabeça realiza um disparo carregado (como uma rajada de energia) na direção do jogador e desaparece.
-/// 
-/// === 2ª ETAPA - METADE DA VIDA (Fase Cansada e Enfurecida) ===
-/// 5. Estado Cansado (50% Vida):
-///    Ao chegar a metade da vida na Etapa 2, o Boss fica exausto e imóvel por alguns segundos (atordoado), 
-///    ficando vulnerável.
-/// 6. Modo Fúria Aceleração:
-///    Após o cansaço, todos os ataques anteriores são desferidos com velocidade de cooldown acelerada em 30%.
-/// 7. Novos Ataques Adicionados:
-///    - Rajada de Bolas de Fogo Rápidas: Dispara consecutivamente várias bolas de fogo para o jogador desviar.
-///    - Invocação de Lacaios & Imunidade: O Boss arremessa inimigos no mapa. Enquanto estes inimigos 
-///      estiverem vivos, o Boss fica envolto num escudo de imunidade que anula qualquer dano recebido.
-/// </summary>
+
 public class UltimoBoss : MonoBehaviour
 {
     [Header("=== STATUS DO BOSS ===")]
     public float vidaMax = 500f;
     public float vidaAtual;
     private bool estaMorto = false;
+    public bool EstaMorto => estaMorto;
     private int etapaAtual = 1;
 
-    [Header("=== TIMING E ESTADOS ===")]
+    [Header("=== BOSS PARADO ===")]
+    public bool manterNoLugar = true;
+    public bool spriteOlhaParaDireita = true;
     public float cooldownAtaques = 3f;
     private bool estaAtacando = false;
     private bool estaCansado = false;
     private bool enfurecido = false;
+    private Vector2 posicaoFixa;
 
-    [Header("=== ETAPA 1: CHUVA DE FOGO & REPEL ===")]
+    [Header("=== PREFABS DOS ATAQUES ===")]
     public GameObject prefabBolaFogo;
-    public float rangeRepel = 2.5f;
-    private float tempoPertoDoBoss = 0f;
-
-    [Header("=== ETAPA 2: CORRENTES E LÍDERES ===")]
-    public float fatorCrescimento = 1.6f;
     public GameObject prefabCorrente;
     public GameObject[] prefabsCabecasLideres;
-
-    [Header("=== ETAPA 2 ENFURECIDA: IMUNIDADE ===")]
-    public GameObject prefabInimigoInvocado; // Inimigo comum a derrotar
+    public GameObject prefabInimigoInvocado;
     public GameObject visualEscudoImunidade;
-    private List<GameObject> inimigosVivos = new List<GameObject>();
-    private bool estaImune = false;
 
+    [Header("=== ATAQUE: CHUVA DE METEOROS ===")]
+    public int quantidadeMeteoros = 4;
+    public float larguraChuva = 9f;
+    public float alturaChuva = 8f;
+    public float tempoAvisoMeteoro = 0.8f;
+    public float velocidadeMeteoro = 13f;
+
+    [Header("=== ATAQUE: RAJADA DIRETA ===")]
+    public int quantidadeRajada = 6;
+    public float velocidadeRajada = 12f;
+    public float intervaloRajada = 0.18f;
+
+    [Header("=== ATAQUE: LEQUE DE ENERGIA ===")]
+    public int quantidadeLeque = 9;
+    public float anguloLeque = 100f;
+    public float velocidadeLeque = 9f;
+
+    [Header("=== ATAQUE: PILARES NO CHAO ===")]
+    public int quantidadePilares = 4;
+    public float raioPilar = 1.4f;
+    public float tempoAvisoPilar = 1f;
+    public float danoPilar = 1f;
+
+    [Header("=== ETAPA 2 ===")]
+    public float fatorCrescimento = 1.6f;
+    public int quantidadeEspiral = 16;
+    public float velocidadeEspiral = 8f;
+    public int quantidadeCabecas = 2;
+
+    private readonly List<GameObject> inimigosVivos = new List<GameObject>();
+    private bool estaImune = false;
     private Transform jogador;
     private Rigidbody2D rb;
 
@@ -73,8 +67,10 @@ public class UltimoBoss : MonoBehaviour
     {
         vidaAtual = vidaMax;
         rb = GetComponent<Rigidbody2D>();
+        posicaoFixa = transform.position;
 
         gameObject.tag = "Enemy";
+        FixarBossNoLugar();
 
         GameObject p = GameObject.FindGameObjectWithTag("Player");
         if (p != null) jogador = p.transform;
@@ -88,48 +84,26 @@ public class UltimoBoss : MonoBehaviour
     {
         if (estaMorto) return;
 
-        // Monitoriza a proximidade do jogador na Etapa 1
-        if (etapaAtual == 1 && jogador != null)
+        if (manterNoLugar)
         {
-            float dist = Vector2.Distance(transform.position, jogador.position);
-            if (dist <= rangeRepel)
-            {
-                tempoPertoDoBoss += Time.deltaTime;
-                if (tempoPertoDoBoss >= 2f)
-                {
-                    // Força um ataque de repel imediato
-                    tempoPertoDoBoss = 0f;
-                    StartCoroutine(ExecutarAtaqueRepel());
-                }
-            }
-            else
-            {
-                tempoPertoDoBoss = Mathf.Max(0f, tempoPertoDoBoss - Time.deltaTime);
-            }
+            transform.position = new Vector3(posicaoFixa.x, posicaoFixa.y, transform.position.z);
+            if (rb != null) rb.linearVelocity = Vector2.zero;
         }
 
-        // Atualiza a imunidade baseado nos minions vivos
-        if (inimigosVivos.Count > 0)
-        {
-            // Limpa referências nulas
-            inimigosVivos.RemoveAll(item => item == null);
-            if (inimigosVivos.Count > 0)
-            {
-                estaImune = true;
-                if (visualEscudoImunidade != null) visualEscudoImunidade.SetActive(true);
-            }
-            else
-            {
-                estaImune = false;
-                if (visualEscudoImunidade != null) visualEscudoImunidade.SetActive(false);
-                Debug.Log("[Último Boss] Escudo quebrado! Minions derrotados.");
-            }
-        }
-        else
-        {
-            estaImune = false;
-            if (visualEscudoImunidade != null) visualEscudoImunidade.SetActive(false);
-        }
+        VirarParaJogador();
+        AtualizarImunidade();
+    }
+
+    private void VirarParaJogador()
+    {
+        if (jogador == null) return;
+
+        float direcao = jogador.position.x >= transform.position.x ? 1f : -1f;
+        if (!spriteOlhaParaDireita) direcao *= -1f;
+
+        Vector3 escala = transform.localScale;
+        escala.x = Mathf.Abs(escala.x) * direcao;
+        transform.localScale = escala;
     }
 
     IEnumerator CicloBatalha()
@@ -141,297 +115,314 @@ public class UltimoBoss : MonoBehaviour
             if (jogador != null && jogador.gameObject.activeInHierarchy && !estaAtacando && !estaCansado)
             {
                 estaAtacando = true;
-                
-                // Reduz tempo entre ataques no modo enfurecido
+
                 float cooldownReal = enfurecido ? cooldownAtaques * 0.7f : cooldownAtaques;
 
                 if (etapaAtual == 1)
                 {
-                    // Apenas Chuva de Bolas de Fogo (e o repel acontece passivamente no Update)
-                    yield return StartCoroutine(ExecutarChuvaDeFogo());
+                    int ataque = Random.Range(1, 4);
+                    if (ataque == 1)
+                        yield return StartCoroutine(ExecutarChuvaMeteoros());
+                    else if (ataque == 2)
+                        yield return StartCoroutine(ExecutarRajadaDireta());
+                    else
+                        yield return StartCoroutine(ExecutarLequeEnergia());
                 }
                 else
                 {
-                    // Etapa 2
-                    List<int> ataquesDisponiveis = new List<int> { 1, 2 }; // 1=Correntes, 2=Cabeças
+                    List<int> ataquesDisponiveis = new List<int> { 1, 2, 3, 4 };
                     if (enfurecido)
                     {
-                        ataquesDisponiveis.Add(3); // Rajada de Fogo
-                        ataquesDisponiveis.Add(4); // Invocação de Minions
+                        ataquesDisponiveis.Add(5);
+                        ataquesDisponiveis.Add(6);
                     }
 
-                    int ataqueEscolhido = ataquesDisponiveis[Random.Range(0, ataquesDisponiveis.Count)];
+                    int ataque = ataquesDisponiveis[Random.Range(0, ataquesDisponiveis.Count)];
 
-                    if (ataqueEscolhido == 1)
-                        yield return StartCoroutine(ExecutarCorrenteHorizontal());
-                    else if (ataqueEscolhido == 2)
-                        yield return StartCoroutine(ExecutarInvocacaoLider());
-                    else if (ataqueEscolhido == 3)
-                        yield return StartCoroutine(ExecutarRajadaRapidaFogo());
+                    if (ataque == 1)
+                        yield return StartCoroutine(ExecutarChuvaMeteoros());
+                    else if (ataque == 2)
+                        yield return StartCoroutine(ExecutarPilaresNoChao());
+                    else if (ataque == 3)
+                        yield return StartCoroutine(ExecutarEspiralEnergia());
+                    else if (ataque == 4)
+                        yield return StartCoroutine(ExecutarInvocacaoCabecas());
+                    else if (ataque == 5)
+                        yield return StartCoroutine(ExecutarRajadaDireta());
                     else
-                        yield return StartCoroutine(ExecutarInvocacaoMinions());
+                        yield return StartCoroutine(ExecutarInvocacaoMinionsParados());
                 }
 
                 yield return new WaitForSeconds(cooldownReal);
                 estaAtacando = false;
             }
+
             yield return null;
         }
     }
 
-    // --- ATAQUES ETAPAS 1 & 2 ---
-
-    IEnumerator ExecutarChuvaDeFogo()
+    IEnumerator ExecutarChuvaMeteoros()
     {
-        Debug.Log("[Último Boss] Chuva de Bolas de Fogo!");
-        
-        // Posições de queda no chão
-        int numBolas = enfurecido ? 5 : 3;
-        for (int i = 0; i < numBolas; i++)
+        Debug.Log("[Ultimo Boss] Chuva de meteoros!");
+
+        int quantidade = enfurecido ? quantidadeMeteoros + 2 : quantidadeMeteoros;
+        float yBase = jogador != null ? jogador.position.y : transform.position.y;
+
+        for (int i = 0; i < quantidade; i++)
+        {
+            Vector3 alvo = jogador != null ? jogador.position : transform.position;
+            alvo.x += Random.Range(-larguraChuva * 0.5f, larguraChuva * 0.5f);
+            alvo.y = yBase;
+
+            GameObject aviso = CriarAviso(alvo, new Color(1f, 0.2f, 0f), 1.7f);
+            yield return new WaitForSeconds(tempoAvisoMeteoro);
+
+            CriarProjetil(prefabBolaFogo, "BossMeteor", alvo + Vector3.up * alturaChuva, Vector3.down, velocidadeMeteoro, Color.red, 0.45f);
+
+            if (aviso != null) Destroy(aviso);
+            yield return new WaitForSeconds(0.15f);
+        }
+    }
+
+    IEnumerator ExecutarRajadaDireta()
+    {
+        Debug.Log("[Ultimo Boss] Rajada direta!");
+
+        for (int i = 0; i < quantidadeRajada; i++)
         {
             if (jogador == null) break;
 
-            // Mira perto do jogador ou aleatório no mapa
-            Vector3 posAlvo = jogador.position + new Vector3(Random.Range(-5f, 5f), -2f, 0f);
-            posAlvo.y = transform.position.y - 3f; // Nível do chão aproximado
+            Vector3 origem = transform.position + Vector3.up * 0.6f;
+            Vector3 direcao = (jogador.position - origem).normalized;
+            direcao += new Vector3(Random.Range(-0.08f, 0.08f), Random.Range(-0.08f, 0.08f), 0f);
 
-            // Cria aviso AOE na posição alvo
-            GameObject aviso = new GameObject("AvisoAOE");
-            aviso.transform.position = posAlvo;
-            aviso.transform.localScale = Vector3.zero;
-            SpriteRenderer sr = aviso.AddComponent<SpriteRenderer>();
-            sr.color = new Color(1f, 0.2f, 0f, 0.5f);
-            sr.sprite = Resources.GetBuiltinResource<Sprite>("Knob.psd");
-
-            // Efeito visual do aviso expandindo
-            float tempoAviso = 1.2f;
-            float decorrido = 0f;
-            while (decorrido < tempoAviso)
-            {
-                decorrido += Time.deltaTime;
-                float escala = Mathf.Lerp(0f, 2.5f, decorrido / tempoAviso);
-                aviso.transform.localScale = new Vector3(escala, escala, 1f);
-                yield return null;
-            }
-
-            // Cria bola de fogo vinda do céu
-            GameObject fogo = Instantiate(prefabBolaFogo != null ? prefabBolaFogo : new GameObject("FallbackFireball"), posAlvo + Vector3.up * 8f, Quaternion.identity);
-            if (prefabBolaFogo == null)
-            {
-                fogo.transform.localScale = new Vector3(0.5f, 0.5f, 1f);
-                SpriteRenderer srf = fogo.AddComponent<SpriteRenderer>();
-                srf.color = Color.red;
-                srf.sprite = Resources.GetBuiltinResource<Sprite>("Knob.psd");
-                fogo.AddComponent<CircleCollider2D>().isTrigger = true;
-            }
-
-            // Desce rapidamente
-            Rigidbody2D rbf = fogo.GetComponent<Rigidbody2D>();
-            if (rbf == null) rbf = fogo.AddComponent<Rigidbody2D>();
-            rbf.gravityScale = 0f;
-            rbf.linearVelocity = Vector2.down * 12f;
-
-            // Adiciona dano
-            BossProjectileDamage bpd = fogo.GetComponent<BossProjectileDamage>();
-            if (bpd == null) bpd = fogo.AddComponent<BossProjectileDamage>();
-            bpd.dano = 1;
-
-            Destroy(aviso);
-            Destroy(fogo, 3f);
-            yield return new WaitForSeconds(0.4f);
+            CriarProjetil(prefabBolaFogo, "BossFireShot", origem, direcao.normalized, velocidadeRajada, new Color(1f, 0.35f, 0f), 0.36f);
+            yield return new WaitForSeconds(intervaloRajada);
         }
     }
 
-    IEnumerator ExecutarAtaqueRepel()
+    IEnumerator ExecutarLequeEnergia()
     {
-        estaAtacando = true;
-        Debug.Log("[Último Boss] Ataque repulsor por proximidade prolongada!");
+        Debug.Log("[Ultimo Boss] Leque de energia!");
 
-        GameObject wave = new GameObject("RepelShockwave");
-        wave.transform.position = transform.position;
-        wave.transform.localScale = Vector3.zero;
-        SpriteRenderer sr = wave.AddComponent<SpriteRenderer>();
-        sr.color = new Color(1f, 0.5f, 0f, 0.6f);
-        sr.sprite = Resources.GetBuiltinResource<Sprite>("Knob.psd");
+        Vector3 origem = transform.position + Vector3.up * 0.4f;
+        Vector3 direcaoBase = jogador != null ? (jogador.position - origem).normalized : Vector3.left;
+        float anguloBase = Mathf.Atan2(direcaoBase.y, direcaoBase.x) * Mathf.Rad2Deg;
+        int quantidade = Mathf.Max(1, quantidadeLeque);
 
-        float tempo = 0.5f;
-        float decorrido = 0f;
-        bool jogadorRepelido = false;
-
-        while (decorrido < tempo)
+        for (int i = 0; i < quantidade; i++)
         {
-            decorrido += Time.deltaTime;
-            float escala = Mathf.Lerp(0f, rangeRepel * 2.5f, decorrido / tempo);
-            wave.transform.localScale = new Vector3(escala, escala, 1f);
-
-            if (jogador != null && !jogadorRepelido)
-            {
-                float dist = Vector2.Distance(transform.position, jogador.position);
-                if (dist <= (escala / 2f))
-                {
-                    jogadorRepelido = true;
-                    PlayerMovement pm = jogador.GetComponent<PlayerMovement>();
-                    if (pm != null) pm.TakeDamage(1);
-
-                    Rigidbody2D rbPlayer = jogador.GetComponent<Rigidbody2D>();
-                    if (rbPlayer != null)
-                    {
-                        Vector2 direcao = (jogador.position - transform.position).normalized;
-                        rbPlayer.linearVelocity = new Vector2(direcao.x * 16f, 10f); // Forte empurrão
-                    }
-                }
-            }
-            yield return null;
+            float t = quantidade == 1 ? 0.5f : i / (float)(quantidade - 1);
+            float angulo = anguloBase + Mathf.Lerp(-anguloLeque * 0.5f, anguloLeque * 0.5f, t);
+            Vector3 direcao = new Vector3(Mathf.Cos(angulo * Mathf.Deg2Rad), Mathf.Sin(angulo * Mathf.Deg2Rad), 0f);
+            CriarProjetil(prefabCorrente, "BossEnergyFan", origem, direcao, velocidadeLeque, Color.magenta, 0.32f);
         }
 
-        Destroy(wave, 0.1f);
-        estaAtacando = false;
-    }
-
-    IEnumerator ExecutarCorrenteHorizontal()
-    {
-        Debug.Log("[Último Boss] Ataque de Correntes horizontais!");
-        float direcao = (jogador != null && jogador.position.x > transform.position.x) ? 1f : -1f;
-
-        GameObject corrente = Instantiate(prefabCorrente != null ? prefabCorrente : new GameObject("FallbackChain"), transform.position + new Vector3(direcao * 2f, -1.5f, 0), Quaternion.identity);
-        if (prefabCorrente == null)
-        {
-            corrente.transform.localScale = new Vector3(1.5f, 0.3f, 1f);
-            SpriteRenderer sr = corrente.AddComponent<SpriteRenderer>();
-            sr.color = Color.gray;
-            sr.sprite = Resources.GetBuiltinResource<Sprite>("UIMask.psd");
-            BoxCollider2D bc = corrente.AddComponent<BoxCollider2D>();
-            bc.isTrigger = true;
-        }
-
-        Rigidbody2D rbc = corrente.GetComponent<Rigidbody2D>();
-        if (rbc == null) rbc = corrente.AddComponent<Rigidbody2D>();
-        rbc.gravityScale = 0f;
-        rbc.linearVelocity = new Vector2(direcao * 8f, 0f);
-
-        BossProjectileDamage bpd = corrente.GetComponent<BossProjectileDamage>();
-        if (bpd == null) bpd = corrente.AddComponent<BossProjectileDamage>();
-        bpd.dano = 1;
-
-        Destroy(corrente, 4f);
         yield return new WaitForSeconds(0.5f);
     }
 
-    IEnumerator ExecutarInvocacaoLider()
+    IEnumerator ExecutarPilaresNoChao()
     {
-        Debug.Log("[Último Boss] Invocando Cabeça de Líder Supremo!");
+        Debug.Log("[Ultimo Boss] Pilares no chao!");
 
-        Vector3 posSpawn = transform.position + new Vector3(Random.Range(-3f, 3f), 4f, 0f);
-        GameObject cabeca = null;
-
-        if (prefabsCabecasLideres != null && prefabsCabecasLideres.Length > 0)
+        for (int i = 0; i < quantidadePilares; i++)
         {
-            cabeca = Instantiate(prefabsCabecasLideres[Random.Range(0, prefabsCabecasLideres.Length)], posSpawn, Quaternion.identity);
-        }
-        else
-        {
-            cabeca = new GameObject("SupremeLeaderHead");
-            cabeca.transform.position = posSpawn;
-            cabeca.transform.localScale = new Vector3(0.8f, 0.8f, 1f);
-            SpriteRenderer sr = cabeca.AddComponent<SpriteRenderer>();
-            sr.color = new Color(0.5f, 0f, 0.5f); // Cor Roxa mística
-            sr.sprite = Resources.GetBuiltinResource<Sprite>("Knob.psd");
-        }
+            Vector3 alvo = jogador != null ? jogador.position : transform.position;
+            alvo.x += Random.Range(-4f, 4f);
 
-        yield return new WaitForSeconds(1f); // Tempo de carregamento
+            GameObject aviso = CriarAviso(alvo, Color.magenta, raioPilar * 2f);
+            yield return new WaitForSeconds(tempoAvisoPilar);
 
-        if (jogador != null && cabeca != null)
-        {
-            // Dispara um poder super rápido
-            Vector3 dir = (jogador.position - cabeca.transform.position).normalized;
-            GameObject spell = new GameObject("LeaderSpell");
-            spell.transform.position = cabeca.transform.position;
-            spell.transform.localScale = new Vector3(0.4f, 0.4f, 1f);
-            SpriteRenderer srs = spell.AddComponent<SpriteRenderer>();
-            srs.color = Color.magenta;
-            srs.sprite = Resources.GetBuiltinResource<Sprite>("Knob.psd");
+            GameObject pilar = CriarAviso(alvo, new Color(0.7f, 0f, 1f), raioPilar * 2.2f);
+            CausarDanoEmArea(alvo, raioPilar, danoPilar);
 
-            Rigidbody2D rbs = spell.AddComponent<Rigidbody2D>();
-            rbs.gravityScale = 0f;
-            rbs.linearVelocity = dir * 14f;
-
-            BossProjectileDamage bpd = spell.AddComponent<BossProjectileDamage>();
-            bpd.dano = 1;
-
-            Destroy(spell, 4f);
-        }
-
-        Destroy(cabeca, 0.5f);
-        yield return new WaitForSeconds(0.6f);
-    }
-
-    IEnumerator ExecutarRajadaRapidaFogo()
-    {
-        Debug.Log("[Último Boss] Rajada rápida de bolas de fogo!");
-
-        for (int i = 0; i < 6; i++)
-        {
-            if (jogador == null) break;
-
-            Vector3 dir = (jogador.position - transform.position).normalized;
-            GameObject fogo = Instantiate(prefabBolaFogo != null ? prefabBolaFogo : new GameObject("FallbackFireball"), transform.position + dir * 1.5f, Quaternion.identity);
-            if (prefabBolaFogo == null)
-            {
-                fogo.transform.localScale = new Vector3(0.4f, 0.4f, 1f);
-                SpriteRenderer srf = fogo.AddComponent<SpriteRenderer>();
-                srf.color = new Color(1f, 0.3f, 0f);
-                srf.sprite = Resources.GetBuiltinResource<Sprite>("Knob.psd");
-                fogo.AddComponent<CircleCollider2D>().isTrigger = true;
-            }
-
-            Rigidbody2D rbf = fogo.GetComponent<Rigidbody2D>();
-            if (rbf == null) rbf = fogo.AddComponent<Rigidbody2D>();
-            rbf.gravityScale = 0f;
-            rbf.linearVelocity = dir * 13f;
-
-            BossProjectileDamage bpd = fogo.GetComponent<BossProjectileDamage>();
-            if (bpd == null) bpd = fogo.AddComponent<BossProjectileDamage>();
-            bpd.dano = 1;
-
-            Destroy(fogo, 3f);
+            if (aviso != null) Destroy(aviso);
+            if (pilar != null) Destroy(pilar, 0.25f);
             yield return new WaitForSeconds(0.2f);
         }
     }
 
-    IEnumerator ExecutarInvocacaoMinions()
+    IEnumerator ExecutarEspiralEnergia()
     {
-        Debug.Log("[Último Boss] Invocando lacaios para obter imunidade!");
+        Debug.Log("[Ultimo Boss] Espiral de energia!");
+
+        Vector3 origem = transform.position + Vector3.up * 0.5f;
+        int quantidade = enfurecido ? quantidadeEspiral + 8 : quantidadeEspiral;
+
+        for (int i = 0; i < quantidade; i++)
+        {
+            float angulo = (360f / quantidade) * i;
+            Vector3 direcao = new Vector3(Mathf.Cos(angulo * Mathf.Deg2Rad), Mathf.Sin(angulo * Mathf.Deg2Rad), 0f);
+            CriarProjetil(prefabCorrente, "BossSpiralShot", origem, direcao, velocidadeEspiral, new Color(0.35f, 0.9f, 1f), 0.3f);
+            yield return new WaitForSeconds(0.035f);
+        }
+
+        yield return new WaitForSeconds(0.35f);
+    }
+
+    IEnumerator ExecutarInvocacaoCabecas()
+    {
+        Debug.Log("[Ultimo Boss] Cabecas supremas a disparar!");
+
+        for (int i = 0; i < quantidadeCabecas; i++)
+        {
+            Vector3 posSpawn = transform.position + new Vector3(Random.Range(-3.5f, 3.5f), 3.5f, 0f);
+            GameObject cabeca = CriarCabeca(posSpawn);
+
+            yield return new WaitForSeconds(0.55f);
+
+            if (jogador != null && cabeca != null)
+            {
+                Vector3 direcao = (jogador.position - cabeca.transform.position).normalized;
+                CriarProjetil(null, "LeaderSpell", cabeca.transform.position, direcao, 14f, Color.magenta, 0.35f);
+            }
+
+            if (cabeca != null) Destroy(cabeca, 0.4f);
+            yield return new WaitForSeconds(0.25f);
+        }
+    }
+
+    IEnumerator ExecutarInvocacaoMinionsParados()
+    {
+        Debug.Log("[Ultimo Boss] Totens de imunidade!");
 
         for (int i = 0; i < 2; i++)
         {
-            Vector3 posSpawn = transform.position + new Vector3(Random.Range(-4f, 4f), 2f, 0f);
-            GameObject inimigo = null;
-
-            if (prefabInimigoInvocado != null)
-            {
-                inimigo = Instantiate(prefabInimigoInvocado, posSpawn, Quaternion.identity);
-            }
-            else
-            {
-                // Fallback: spawn a BarataInimigo programmatically if we find its component
-                inimigo = new GameObject("InvocadoBarata");
-                inimigo.transform.position = posSpawn;
-                SpriteRenderer sr = inimigo.AddComponent<SpriteRenderer>();
-                sr.color = Color.magenta;
-                // Add script BarataInimigo which has its own AI perseguição
-                BarataInimigo bi = inimigo.AddComponent<BarataInimigo>();
-                bi.distanciaAtivacao = 15f;
-                bi.velocidade = 3f;
-                bi.vida = 1;
-            }
-
+            Vector3 posSpawn = transform.position + new Vector3(Random.Range(-4f, 4f), 1.5f, 0f);
+            GameObject inimigo = prefabInimigoInvocado != null ? Instantiate(prefabInimigoInvocado, posSpawn, Quaternion.identity) : CriarTotemFallback(posSpawn);
+            CongelarObjetoInvocado(inimigo);
             inimigosVivos.Add(inimigo);
         }
 
         yield return new WaitForSeconds(0.5f);
     }
 
-    // --- RECEBER DANO ---
+    private void AtualizarImunidade()
+    {
+        inimigosVivos.RemoveAll(item => item == null);
+        estaImune = inimigosVivos.Count > 0;
+
+        if (visualEscudoImunidade != null)
+            visualEscudoImunidade.SetActive(estaImune);
+    }
+
+    private void FixarBossNoLugar()
+    {
+        if (rb == null) return;
+
+        rb.linearVelocity = Vector2.zero;
+        rb.angularVelocity = 0f;
+        rb.gravityScale = 0f;
+        rb.constraints = RigidbodyConstraints2D.FreezeAll;
+    }
+
+    private GameObject CriarProjetil(GameObject prefab, string nomeFallback, Vector3 posicao, Vector3 direcao, float velocidade, Color corFallback, float escalaFallback)
+    {
+        GameObject projetil = prefab != null ? Instantiate(prefab, posicao, Quaternion.identity) : CriarProjetilFallback(nomeFallback, posicao, corFallback, escalaFallback);
+
+        Rigidbody2D rbProjetil = projetil.GetComponent<Rigidbody2D>();
+        if (rbProjetil == null) rbProjetil = projetil.AddComponent<Rigidbody2D>();
+        rbProjetil.gravityScale = 0f;
+        rbProjetil.linearVelocity = direcao.normalized * velocidade;
+
+        BossProjectileDamage dano = projetil.GetComponent<BossProjectileDamage>();
+        if (dano == null) dano = projetil.AddComponent<BossProjectileDamage>();
+        dano.dano = 1;
+
+        Destroy(projetil, 5f);
+        return projetil;
+    }
+
+    private GameObject CriarProjetilFallback(string nome, Vector3 posicao, Color cor, float escala)
+    {
+        GameObject projetil = new GameObject(nome);
+        projetil.transform.position = posicao;
+        projetil.transform.localScale = new Vector3(escala, escala, 1f);
+
+        SpriteRenderer sr = projetil.AddComponent<SpriteRenderer>();
+        sr.color = cor;
+        sr.sprite = Resources.GetBuiltinResource<Sprite>("Knob.psd");
+
+        CircleCollider2D cc = projetil.AddComponent<CircleCollider2D>();
+        cc.isTrigger = true;
+
+        return projetil;
+    }
+
+    private GameObject CriarAviso(Vector3 posicao, Color cor, float escala)
+    {
+        GameObject aviso = new GameObject("AvisoAtaqueBoss");
+        aviso.transform.position = posicao;
+        aviso.transform.localScale = new Vector3(escala, escala, 1f);
+
+        SpriteRenderer sr = aviso.AddComponent<SpriteRenderer>();
+        sr.color = new Color(cor.r, cor.g, cor.b, 0.45f);
+        sr.sprite = Resources.GetBuiltinResource<Sprite>("Knob.psd");
+
+        return aviso;
+    }
+
+    private GameObject CriarCabeca(Vector3 posicao)
+    {
+        if (prefabsCabecasLideres != null && prefabsCabecasLideres.Length > 0)
+        {
+            return Instantiate(prefabsCabecasLideres[Random.Range(0, prefabsCabecasLideres.Length)], posicao, Quaternion.identity);
+        }
+
+        GameObject cabeca = new GameObject("SupremeLeaderHead");
+        cabeca.transform.position = posicao;
+        cabeca.transform.localScale = new Vector3(0.8f, 0.8f, 1f);
+
+        SpriteRenderer sr = cabeca.AddComponent<SpriteRenderer>();
+        sr.color = new Color(0.5f, 0f, 0.5f);
+        sr.sprite = Resources.GetBuiltinResource<Sprite>("Knob.psd");
+
+        return cabeca;
+    }
+
+    private GameObject CriarTotemFallback(Vector3 posicao)
+    {
+        GameObject totem = new GameObject("TotemImunidadeBoss");
+        totem.transform.position = posicao;
+        totem.transform.localScale = new Vector3(0.8f, 1.2f, 1f);
+        totem.tag = "Enemy";
+
+        SpriteRenderer sr = totem.AddComponent<SpriteRenderer>();
+        sr.color = new Color(0.4f, 0f, 0.9f);
+        sr.sprite = Resources.GetBuiltinResource<Sprite>("UIMask.psd");
+
+        BoxCollider2D col = totem.AddComponent<BoxCollider2D>();
+        col.isTrigger = true;
+
+        Destroy(totem, 8f);
+        return totem;
+    }
+
+    private void CongelarObjetoInvocado(GameObject objeto)
+    {
+        if (objeto == null) return;
+
+        Rigidbody2D rbObjeto = objeto.GetComponent<Rigidbody2D>();
+        if (rbObjeto == null) rbObjeto = objeto.AddComponent<Rigidbody2D>();
+
+        rbObjeto.linearVelocity = Vector2.zero;
+        rbObjeto.angularVelocity = 0f;
+        rbObjeto.gravityScale = 0f;
+        rbObjeto.constraints = RigidbodyConstraints2D.FreezeAll;
+    }
+
+    private void CausarDanoEmArea(Vector2 posicao, float raio, float dano)
+    {
+        Collider2D[] hits = Physics2D.OverlapCircleAll(posicao, raio);
+        foreach (Collider2D hit in hits)
+        {
+            if (hit.CompareTag("Player"))
+            {
+                PlayerMovement pm = hit.GetComponent<PlayerMovement>();
+                if (pm != null) pm.TakeDamage(dano);
+            }
+        }
+    }
 
     public void TomarDano(float dano)
     {
@@ -439,21 +430,19 @@ public class UltimoBoss : MonoBehaviour
 
         if (estaImune)
         {
-            Debug.Log("[Último Boss] IMUNE! Derrota os inimigos primeiro.");
+            Debug.Log("[Ultimo Boss] IMUNE! Destroi os totens/inimigos primeiro.");
             return;
         }
 
         vidaAtual -= dano;
-        Debug.Log($"[Último Boss] Tomou {dano} de dano! Vida atual: {vidaAtual}/{vidaMax}");
+        Debug.Log($"[Ultimo Boss] Tomou {dano} de dano! Vida atual: {vidaAtual}/{vidaMax}");
 
-        // Verifica transição de etapas
         if (etapaAtual == 1 && vidaAtual <= (vidaMax / 2f))
         {
             TransitarParaEtapa2();
         }
         else if (etapaAtual == 2 && !estaCansado && !enfurecido && vidaAtual <= (vidaMax / 4f))
         {
-            // Metade da vida da Etapa 2 (que é 25% da vida máxima total)
             StartCoroutine(ExecutarEstadoCansado());
         }
 
@@ -466,12 +455,10 @@ public class UltimoBoss : MonoBehaviour
     private void TransitarParaEtapa2()
     {
         etapaAtual = 2;
-        Debug.Log("[Último Boss] TRANSITANDO PARA A ETAPA 2! O Boss cresce e fica irritado.");
+        Debug.Log("[Ultimo Boss] Etapa 2! Ataques parados mais agressivos.");
 
-        // O boss cresce
         transform.localScale = transform.localScale * fatorCrescimento;
 
-        // Fica avermelhado de raiva
         SpriteRenderer sr = GetComponent<SpriteRenderer>();
         if (sr != null) sr.color = new Color(1f, 0.5f, 0.5f);
     }
@@ -479,32 +466,31 @@ public class UltimoBoss : MonoBehaviour
     IEnumerator ExecutarEstadoCansado()
     {
         estaCansado = true;
-        Debug.Log("[Último Boss] Ficou cansado! Parado por um tempo.");
+        Debug.Log("[Ultimo Boss] Ficou cansado por um tempo.");
 
-        // Visual de cansado (cor mais escura ou acinzentada)
         SpriteRenderer sr = GetComponent<SpriteRenderer>();
         Color original = sr != null ? sr.color : Color.white;
         if (sr != null) sr.color = Color.gray;
 
         if (rb != null) rb.linearVelocity = Vector2.zero;
 
-        yield return new WaitForSeconds(4f); // Fica parado cansado por 4s
+        yield return new WaitForSeconds(4f);
 
-        if (sr != null) sr.color = new Color(1f, 0.3f, 0.3f); // Cor enfurecida total
+        if (sr != null) sr.color = new Color(1f, 0.3f, 0.3f);
         estaCansado = false;
         enfurecido = true;
-        Debug.Log("[Último Boss] RECUPERADO E ENFURECIDO! Ataques mais rápidos e novos poderes desbloqueados.");
+        Debug.Log("[Ultimo Boss] Recuperado e enfurecido!");
     }
 
     private void Morrer()
     {
         estaMorto = true;
         StopAllCoroutines();
-        Debug.Log("[Último Boss] Derrotado! O mundo está salvo.");
+        Debug.Log("[Ultimo Boss] Derrotado! O mundo esta salvo.");
 
-        
         GameDatabase.Instance.data.plets += 400;
-
+        TrocaCenaBoss.CarregarProximaCena();
+        
         Destroy(gameObject, 1.5f);
     }
 

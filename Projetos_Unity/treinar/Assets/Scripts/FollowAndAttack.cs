@@ -3,10 +3,10 @@ using UnityEngine;
 public class FollowAndAttack : MonoBehaviour
 {
     [Header("Attack Settings")]
-    [Tooltip("Prefab do ataque. Deve conter um PolygonCollider2D que define a ·rea do ataque.")]
+    [Tooltip("Prefab do ataque. Deve conter um PolygonCollider2D que define a √°rea do ataque.")]
     [SerializeField] private GameObject attackPrefab = null;
 
-    [Tooltip("Dist‚ncia m·xima ‡ frente do personagem onde o ataque pode aparecer. Se o rato estiver mais perto, o ataque aparece exatamente onde o rato est·.")]
+    [Tooltip("Dist√¢ncia m√°xima √† frente do personagem onde o ataque pode aparecer. Se o rato estiver mais perto, o ataque aparece exatamente onde o rato est√°.")]
     [SerializeField] private float offset = 1.0f;
 
     [Tooltip("Tempo entre ataques (segundos).")]
@@ -15,14 +15,14 @@ public class FollowAndAttack : MonoBehaviour
     [Tooltip("Tempo de vida do objeto de ataque instanciado (segundos).")]
     [SerializeField] private float lifetime = 0.2f;
 
-    [Tooltip("Se verdadeiro, o ataque ser· parentado ao jogador. Se falso, ficar· na cena raiz.")]
+    [Tooltip("Se verdadeiro, o ataque ser√° parentado ao jogador. Se falso, ficar√° na cena raiz.")]
     [SerializeField] private bool parentAttack = false;
 
     private float nextAttackTime = 0f;
 
     private void Reset()
     {
-        // Valores padr„o ˙teis ao criar o componente
+        // Valores padr√£o √∫teis ao criar o componente
         offset = 1f;
         cooldown = 0.5f;
         lifetime = 0.2f;
@@ -41,17 +41,17 @@ public class FollowAndAttack : MonoBehaviour
     {
         if (attackPrefab == null)
         {
-            Debug.LogWarning("[FollowAndAttack] attackPrefab n„o atribuÌdo.");
+            Debug.LogWarning("[FollowAndAttack] attackPrefab n√£o atribu√≠do.");
             nextAttackTime = Time.time + cooldown;
             return;
         }
 
-        // Pega posiÁ„o do mouse no mundo (2D)
+        // Pega posi√ß√£o do mouse no mundo (2D)
         Vector3 mouseScreen = Input.mousePosition;
         Camera cam = Camera.main;
         if (cam == null)
         {
-            Debug.LogWarning("[FollowAndAttack] Camera.main È nula.");
+            Debug.LogWarning("[FollowAndAttack] Camera.main √© nula.");
             nextAttackTime = Time.time + cooldown;
             return;
         }
@@ -68,7 +68,7 @@ public class FollowAndAttack : MonoBehaviour
         if (dist <= 0.0001f)
         {
             // Rato exatamente sobre o personagem: manter spawn no mouse (que coincide com origin)
-            dirNorm = Vector2.right; // fallback para c·lculo de rotaÁ„o
+            dirNorm = Vector2.right; // fallback para c√°lculo de rota√ß√£o
         }
         else
         {
@@ -76,14 +76,14 @@ public class FollowAndAttack : MonoBehaviour
         }
 
         Vector3 spawnPos;
-        // Se houver offset positivo e o mouse estiver alÈm desse alcance, limitar ao offset.
+        // Se houver offset positivo e o mouse estiver al√©m desse alcance, limitar ao offset.
         if (offset > 0f && dist > offset)
         {
             spawnPos = origin + (Vector3)(dirNorm * offset);
         }
         else
         {
-            // Caso contr·rio, spawn exatamente onde o rato est· (mesmo se estiver sobre o personagem)
+            // Caso contr√°rio, spawn exatamente onde o rato est√° (mesmo se estiver sobre o personagem)
             spawnPos = mouseWorld;
         }
 
@@ -99,10 +99,16 @@ public class FollowAndAttack : MonoBehaviour
         // Verifica se o prefab tem PolygonCollider2D
         if (atk.GetComponent<PolygonCollider2D>() == null && atk.GetComponentInChildren<PolygonCollider2D>() == null)
         {
-            Debug.LogWarning("[FollowAndAttack] O ataque instanciado n„o tem um PolygonCollider2D. A forma do ataque deve ser definida por um PolygonCollider2D.");
+            Debug.LogWarning("[FollowAndAttack] O ataque instanciado n√£o tem um PolygonCollider2D. A forma do ataque deve ser definida por um PolygonCollider2D.");
         }
 
-        // DestrÛi apÛs lifetime
+        Ataque ataque = atk.GetComponent<Ataque>();
+        if (ataque == null)
+            ataque = atk.GetComponentInChildren<Ataque>(true);
+
+        if (ataque != null)
+            ataque.AtivarAtaque();
+        // Destr√≥i ap√≥s lifetime
         if (lifetime > 0f)
         {
             Destroy(atk, lifetime);

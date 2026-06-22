@@ -5,39 +5,69 @@ using UnityEngine;
 public class Ataque : MonoBehaviour
 {
     private List<GameObject> alreadyHit = new List<GameObject>();
+    private Collider2D ataqueCollider;
+    private bool ataqueAtivo = false;
+
+    private void Awake()
+    {
+        ataqueCollider = GetComponent<Collider2D>();
+        DesativarAtaque();
+    }
 
     private void OnEnable()
     {
-        alreadyHit.Clear(); 
+        alreadyHit.Clear();
+        ataqueAtivo = false;
+
+        if (ataqueCollider == null)
+            ataqueCollider = GetComponent<Collider2D>();
+
+        if (ataqueCollider != null)
+            ataqueCollider.enabled = false;
+    }
+
+    public void AtivarAtaque()
+    {
+        ataqueAtivo = true;
+        alreadyHit.Clear();
+
+        if (ataqueCollider == null)
+            ataqueCollider = GetComponent<Collider2D>();
+
+        if (ataqueCollider != null)
+            ataqueCollider.enabled = true;
+    }
+
+    public void DesativarAtaque()
+    {
+        ataqueAtivo = false;
+        alreadyHit.Clear();
+
+        if (ataqueCollider == null)
+            ataqueCollider = GetComponent<Collider2D>();
+
+        if (ataqueCollider != null)
+            ataqueCollider.enabled = false;
     }
 
     private void OnTriggerEnter2D(Collider2D other)
+    {
+        if (!ataqueAtivo) return;
+        TentarAcertar(other);
+    }
+
+    private void OnTriggerStay2D(Collider2D other)
+    {
+        if (!ataqueAtivo) return;
+        TentarAcertar(other);
+    }
+
+    private void TentarAcertar(Collider2D other)
     {
         if (other.CompareTag("Enemy") && !alreadyHit.Contains(other.gameObject))
         {
             bool acertou = false;
             bool isBoss = false;
-            // Tenta dar dano à mini barata
-            MiniBarata miniBarata = other.GetComponent<MiniBarata>();
-            if (miniBarata != null)
-            {
-                miniBarata.TakeDamage();
-                alreadyHit.Add(other.gameObject);
-                Debug.Log($"[Ataque] Acertou na Mini Barata: {other.gameObject.name} | Vida restante: {miniBarata.vida}");
-                acertou = true;
-            }
-
-            // Tenta dar dano à Barata Inimigo (nova do mapa)
-            BarataInimigo barataInimigo = other.GetComponent<BarataInimigo>();
-            if (barataInimigo != null)
-            {
-                barataInimigo.TakeDamage();
-                alreadyHit.Add(other.gameObject);
-                Debug.Log($"[Ataque] Acertou na Barata Inimigo: {other.gameObject.name} | Vida restante: {barataInimigo.vida}");
-                acertou = true;
-            }
-
-            // Get dynamic player damage
             float playerDamage = 25f;
             PlayerMovement pm = GetComponentInParent<PlayerMovement>();
             if (pm == null)
@@ -49,12 +79,32 @@ public class Ataque : MonoBehaviour
             {
                 playerDamage = pm.GetCurrentDamage();
             }
+            int playerDamageInt = Mathf.RoundToInt(playerDamage);
+            // Tenta dar dano à mini barata
+            MiniBarata miniBarata = other.GetComponent<MiniBarata>();
+            if (miniBarata != null)
+            {
+                miniBarata.TomarDano(playerDamageInt);
+                alreadyHit.Add(other.gameObject);
+                Debug.Log($"[Ataque] Acertou na Mini Barata: {other.gameObject.name} | Vida restante: {miniBarata.vida}");
+                acertou = true;
+            }
+
+            // Tenta dar dano à Barata Inimigo (nova do mapa)
+            BarataInimigo barataInimigo = other.GetComponent<BarataInimigo>();
+            if (barataInimigo != null)
+            {
+                barataInimigo.TomarDano(playerDamageInt);
+                alreadyHit.Add(other.gameObject);
+                Debug.Log($"[Ataque] Acertou na Barata Inimigo: {other.gameObject.name} | Vida restante: {barataInimigo.vida}");
+                acertou = true;
+            }
 
             // Tenta dar dano ao Boss Barata
             BossBarata boss = other.GetComponent<BossBarata>();
             if (boss != null)
             {
-                boss.TomarDano((int)playerDamage);
+                boss.TomarDano(playerDamageInt);
                 alreadyHit.Add(other.gameObject);
                 Debug.Log($"[Ataque] Acertou no Boss Barata! Vida restante: {boss.vidaAtual}/{boss.maxVida}");
                 acertou = true;
@@ -65,7 +115,7 @@ public class Ataque : MonoBehaviour
             BossAnaoMitologico bossAnao = other.GetComponent<BossAnaoMitologico>();
             if (bossAnao != null)
             {
-                bossAnao.TomarDano((int)playerDamage);
+                bossAnao.TomarDano(playerDamageInt);
                 alreadyHit.Add(other.gameObject);
                 Debug.Log($"[Ataque] Acertou no Boss Anão!");
                 acertou = true;

@@ -1,9 +1,7 @@
     using System.Collections;
     using System.Collections.Generic;
     using UnityEngine;
-    // ==============================================================================
-    // CLASSE PRINCIPAL DO BOSS (ANÃO + PÉ GRANDE)
-    // ==============================================================================
+    using UnityEngine.SceneManagement;
     public class BossAnaoMitologico : MonoBehaviour
     {
         public enum EstadoTurno
@@ -17,6 +15,7 @@
         public Animator animAnao;
         [Tooltip("Local de onde saem os tiros do Anão (opcional, usa o centro se vazio)")]
         public Transform pontoDisparoAnao;
+        public bool spriteAnaoOlhaParaDireita = true;
         
         [Header("=== REFERÊNCIAS DO PÉ GRANDE ===")]
         [Tooltip("O GameObject do Pé Grande que vai ser ativado na fase 2")]
@@ -25,6 +24,7 @@
         public Animator animPeGrande;
         [Tooltip("Local de onde saem as pedras do Pé Grande (opcional)")]
         public Transform pontoDisparoPeGrande;
+        public bool spritePeGrandeOlhaParaDireita = true;
 
         [Header("=== PREFABS DOS ATAQUES ===")]
         public GameObject prefabMoeda;
@@ -38,6 +38,7 @@
         public int vidaAtual; 
         private bool fase2Ativa = false;
         private bool estaMorto = false;
+        public bool EstaMorto => estaMorto;
 
         [Header("=== TIMING ===")]
         public float tempoEntreAtaques = 2.5f;
@@ -56,6 +57,17 @@
 
             // Inicia o ciclo de batalha
             StartCoroutine(CicloDeBatalha());
+        }
+
+        void Update()
+        {
+            ProcurarJogador();
+            VirarObjetoParaJogador(gameObject, spriteAnaoOlhaParaDireita);
+
+            if (peGrandeGameObject != null && peGrandeGameObject.activeInHierarchy)
+            {
+                VirarObjetoParaJogador(peGrandeGameObject, spritePeGrandeOlhaParaDireita);
+            }
         }
 
         private void ProcurarJogador()
@@ -112,8 +124,8 @@
 
             if (animAnao != null) animAnao.SetTrigger("Morrer");
             if (animPeGrande != null) animPeGrande.SetTrigger("Morrer");
-
-            // Desativa tudo passados uns segundos
+            GameDatabase.Instance.data.plets += 200;
+            TrocaCenaBoss.CarregarProximaCena();
             Destroy(gameObject, 2f);
             if (peGrandeGameObject != null) Destroy(peGrandeGameObject, 2f);
         }
@@ -292,5 +304,17 @@
             }
             
             return jogador.position;
+        }
+
+        private void VirarObjetoParaJogador(GameObject objeto, bool spriteOlhaParaDireita)
+        {
+            if (objeto == null || jogador == null) return;
+
+            float direcao = jogador.position.x >= objeto.transform.position.x ? 1f : -1f;
+            if (!spriteOlhaParaDireita) direcao *= -1f;
+
+            Vector3 escala = objeto.transform.localScale;
+            escala.x = Mathf.Abs(escala.x) * direcao;
+            objeto.transform.localScale = escala;
         }
     }

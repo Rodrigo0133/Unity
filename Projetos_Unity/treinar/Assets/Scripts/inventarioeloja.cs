@@ -9,15 +9,23 @@ public class inventarioeloja : MonoBehaviour
     private bool maximo = false;
     void Start()
     {
-        if(GameDatabase.Instance.data.swordLevel == 4){
+        AtualizarPrecoArma();
+    }
+
+    private void AtualizarPrecoArma()
+    {
+        int swordLevel = Mathf.Clamp(GameDatabase.Instance.data.swordLevel, 1, PlayerMovement.MaxSwordLevel);
+        GameDatabase.Instance.data.swordLevel = swordLevel;
+
+        if(swordLevel >= PlayerMovement.MaxSwordLevel){
             preco.text = "MAXIMO";
             maximo = true;
         }
         else
         {
-            preco.text = precos[GameDatabase.Instance.data.swordLevel - 1].ToString();
+            preco.text = precos[swordLevel - 1].ToString();
+            maximo = false;
         }
-
     }
     [Header("Painéis")]
     public GameObject painel;
@@ -39,7 +47,6 @@ public class inventarioeloja : MonoBehaviour
     public GameObject rapidez;
     public GameObject ganacia;
     public GameObject escudo;
-    public GameObject button;
     public TextMeshProUGUI butao;
 
     [Header("Texto")]
@@ -65,30 +72,37 @@ public class inventarioeloja : MonoBehaviour
         menu.SetActive(false);
         Menuarmas.SetActive(true);
     }
-
+    public void Rapidez()
+    {
+        
+        Shopamuletos.SetActive(false);
+        rapidez.SetActive(true);
+        Rapidez_Verificar();
+        amuletoAtual = "Rapidez";
+    }
     public void Melhorararma()
     {
+        AtualizarPrecoArma();
         if (!maximo)
         {
             if (Temarmasdinheiro()){
                 GameDatabase.Instance.data.plets -= precos[GameDatabase.Instance.data.swordLevel - 1];
                 GameDatabase.Instance.data.swordLevel++;
-                if (GameDatabase.Instance.data.swordLevel >= 5)
-                {
-                    maximo = true;
-                    preco.text = "MAXIMO";
-                }
-                else
-                {
-                    preco.text = precos[GameDatabase.Instance.data.swordLevel - 1].ToString();
-                }
+                AtualizarPrecoArma();
+                PlayerMovement player = FindObjectOfType<PlayerMovement>();
+                if (player != null) player.AtualizarDanoEspada();
                 GameDatabase.Instance.SaveGame();
                 StartCoroutine(Melhorado(segundos));
+            }
+            else
+            {
+                texto.text = "Não tens dinheiro suficiente!";
             }
         }
     }
     public void SairdaShopArmas()
     {
+        texto.gameObject.SetActive(false);
         Menuarmas.SetActive(false);
         menu.SetActive(true);
     }
@@ -109,7 +123,6 @@ public class inventarioeloja : MonoBehaviour
 
     public void Vitalidade()
     {
-        button.SetActive(true);
         Shopamuletos.SetActive(false);
         vitalidade.SetActive(true);
         Vitalidade_Verificar();
@@ -220,18 +233,16 @@ public class inventarioeloja : MonoBehaviour
             egcudo.text = "Comprar por 250 plets!"; 
         }
     }
-    public void Rapidez()
+    public void Escudo()
     {
-        button.SetActive(true);
         Shopamuletos.SetActive(false);
-        rapidez.SetActive(true);
-        Rapidez_Verificar();
-        amuletoAtual = "Rapidez";
+        escudo.SetActive(true);
+        Escudo_vereficar();
+        amuletoAtual = "Escudo";
     }
 
     public void Furia()
     {
-        button.SetActive(true);
         Shopamuletos.SetActive(false);
         furia.SetActive(true);
         Furia_Verificar();
@@ -243,18 +254,8 @@ public class inventarioeloja : MonoBehaviour
         Debug.Log("mais 250");
     }
 
-    public void Escudo()
-    {
-        button.SetActive(true);
-        Shopamuletos.SetActive(false);
-        escudo.SetActive(true);
-        Escudo_vereficar();
-        amuletoAtual = "Escudo";
-    }
-
     public void Ganacia()
     {
-        button.SetActive(true);
         Shopamuletos.SetActive(false);
         ganacia.SetActive(true);
         ganacia_vereficar();
@@ -285,9 +286,9 @@ public class inventarioeloja : MonoBehaviour
     } 
     private void VoltarParaShopAmuletos(GameObject painelamuleto)
     {
+        texto.gameObject.SetActive(false);
         painelamuleto.SetActive(false);
         Shopamuletos.SetActive(true);
-        button.SetActive(false);
     }
    private void ComprarOuEquipar(string id)
     {
@@ -363,7 +364,13 @@ public class inventarioeloja : MonoBehaviour
     }
     public bool Temarmasdinheiro()
     {
-        if(GameDatabase.Instance.data.plets >= precos[GameDatabase.Instance.data.swordLevel - 1])
+        int swordLevel = Mathf.Clamp(GameDatabase.Instance.data.swordLevel, 1, PlayerMovement.MaxSwordLevel);
+        if(swordLevel >= PlayerMovement.MaxSwordLevel)
+        {
+            return false;
+        }
+
+        if(GameDatabase.Instance.data.plets >= precos[swordLevel - 1])
         {
             return true;
         }

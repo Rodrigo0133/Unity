@@ -23,5 +23,8 @@ public class Espinho : MonoBehaviour
                 scriptJogador.TakeDamage(dano);
             }
         }
+        if (collision.CompareTag("Enemy")){
+            Destroy(collision.gameObject);
+        }
     }
 }

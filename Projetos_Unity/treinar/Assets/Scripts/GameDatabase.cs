@@ -5,7 +5,7 @@ using UnityEngine;
 public class SaveData
 {
     public string lastSceneName = "";
-    public float posX = 0f, posY = 0f, posZ = 0f;
+    public float posY = 0f;
 
     public int plets = 0;
     public int swordLevel = 1;
@@ -100,9 +100,7 @@ public class GameDatabase : MonoBehaviour
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
         {
-            data.posX = player.transform.position.x;
             data.posY = player.transform.position.y;
-            data.posZ = player.transform.position.z;
             data.lastSceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
         }
 

@@ -12,8 +12,32 @@ EditorBuildSettings:
     path: Assets/Scenes/SampleScene.unity
     guid: 8c9cfa26abfee488c85f1582747f6a02
   - enabled: 1
-    path: Assets/Scenes/Vila dos quadrados.unity
-    guid: 38f5ddcc04986ce4cae2f84b1df017f0
+    path: Assets/Scenes/Timeline da vila.unity
+    guid: 8e04fb255ecf3f140acf7782cb2fda40
+  - enabled: 1
+    path: Assets/Scenes/Fase boss 1.unity
+    guid: 68696e170ccd0cc49ba3cb7f6c286dc7
+  - enabled: 1
+    path: Assets/Scenes/Timeline da vila 1.unity
+    guid: b34f27e885780a847965e27b1ce1d88a
+  - enabled: 1
+    path: Assets/Scenes/Fase boss 2.unity
+    guid: 295519b0fd9797349af6bbfb6cf3930d
+  - enabled: 1
+    path: Assets/Scenes/Timeline da vila 2.unity
+    guid: 7cde7d8f8b52fd24f9ae27526327931e
+  - enabled: 1
+    path: Assets/Scenes/Fase boss 3.unity
+    guid: f9c332d7e7002764888f4c1a329c731e
+  - enabled: 1
+    path: Assets/Scenes/Timeline da vila 3.unity
+    guid: a2d9c34417e0f6443a4609d34b71598e
+  - enabled: 1
+    path: Assets/Scenes/Final boss.unity
+    guid: c06555b1cfcba3345ac67f5e8c6ef08b
+  - enabled: 1
+    path: Assets/Scenes/FINAL.unity
+    guid: baea2787363c4ec4ba4f3d8d7d1afe75
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
   m_UseUCBPForAssetBundles: 0

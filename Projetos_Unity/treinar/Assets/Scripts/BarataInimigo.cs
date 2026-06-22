@@ -8,6 +8,7 @@ public class BarataInimigo : MonoBehaviour
     public int vida = 50;
     public int danoAoJogador = 1;
     public float distanciaAtivacao = 8f; // Ajuste conforme necessário
+    public bool spriteOlhaParaDireita = true;
 
     private Transform jogador;
     private Vector2 posicaoInicial;
@@ -49,6 +50,7 @@ public class BarataInimigo : MonoBehaviour
 
         if (distancia <= distanciaAtivacao)
         {
+            VirarParaJogador();
             transform.position = Vector2.MoveTowards(transform.position, jogador.position, velocidade * Time.deltaTime);
         }
         else if (Vector2.Distance(transform.position, posicaoInicial) > 0.05f)
@@ -112,16 +114,47 @@ public class BarataInimigo : MonoBehaviour
 
     private void OnTriggerStay2D(Collider2D other)
     {
-        if (Time.time < proximoAtaque) return;
+        TentarDarDano(other.gameObject);
+    }
 
-        if (other.CompareTag("Player"))
-        {
-            PlayerMovement pm = other.GetComponent<PlayerMovement>();
-            if (pm != null)
-            {
-                pm.TakeDamage(danoAoJogador);
-                proximoAtaque = Time.time + cooldownAtaque;
-            }
-        }
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        TentarDarDano(other.gameObject);
+    }
+
+    private void OnCollisionStay2D(Collision2D collision)
+    {
+        TentarDarDano(collision.gameObject);
+    }
+
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        TentarDarDano(collision.gameObject);
+    }
+
+    private void TentarDarDano(GameObject alvo)
+    {
+        if (estaMorta || Time.time < proximoAtaque) return;
+
+        PlayerMovement pm = alvo.GetComponent<PlayerMovement>();
+        if (pm == null)
+            pm = alvo.GetComponentInParent<PlayerMovement>();
+
+        if (pm == null || !pm.CompareTag("Player")) return;
+
+        pm.TakeDamage(danoAoJogador);
+        proximoAtaque = Time.time + cooldownAtaque;
+    }
+
+    private void VirarParaJogador()
+    {
+        if (jogador == null) return;
+
+        float direcao = jogador.position.x >= transform.position.x ? 1f : -1f;
+        if (!spriteOlhaParaDireita) direcao *= -1f;
+
+        Vector3 escala = transform.localScale;
+        escala.x = Mathf.Abs(escala.x) * direcao;
+        transform.localScale = escala;
     }
 }

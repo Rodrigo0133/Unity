@@ -1,23 +1,6 @@
 using System.Collections;
 using UnityEngine;
-
-/// <summary>
-/// 3º Boss: Irmão do King Cube
-/// Descrição dos Ataques:
-/// 
-/// 1º ATAQUE - Giro em Rolamento:
-/// O Boss encolhe-se e começa a girar intensamente, deslizando a alta velocidade de um canto
-/// ao outro do mapa. O jogador é obrigado a saltar com timing correto para evitar ser atropelado.
-/// 
-/// 2º ATAQUE - Tiro de Dinheiro:
-/// Com orgulho, o Boss atira moedas de ouro (projéteis) diretamente na direção do jogador, 
-/// tentando atingi-lo à distância.
-/// 
-/// 3º ATAQUE - Grito de Afastamento (Scream & Knockback):
-/// O Boss prepara-se, expande o peito e dá um grito ensurdecedor. O grito gera uma onda sonora 
-/// circular visível (área AOE). Se o jogador for apanhado dentro da área, sofre dano e é 
-/// violentamente empurrado para trás (Knockback).
-/// </summary>
+using UnityEngine.SceneManagement;
 public class BossIrmaoKingCube : MonoBehaviour
 {
     [Header("=== STATUS DO BOSS ===")]
@@ -26,34 +9,45 @@ public class BossIrmaoKingCube : MonoBehaviour
     public float tempoEntreAtaques = 3f;
     private bool estaMorto = false;
     private bool estaAtacando = false;
+    public bool EstaMorto => estaMorto;
 
-    [Header("=== ATAQUE 1: GIRO EM ROLAMENTO ===")]
-    public float velocidadeGiro = 12f;
-    public float tempoGiro = 2.5f;
+    [Header("=== BOSS PARADO ===")]
+    public bool manterNoLugar = true;
+    public bool spriteOlhaParaDireita = false;
+    private Vector2 posicaoFixa;
 
-    [Header("=== ATAQUE 2: LANÇAR MOEDAS ===")]
-    public GameObject prefabProjetilMoeda; 
+    [Header("=== ATAQUE 1: RAJADA DE MOEDAS ===")]
+    public GameObject prefabProjetilMoeda;
     public Transform pontoDisparo;
     public float velocidadeMoeda = 10f;
-    public int quantidadeMoedas = 5;
+    public int quantidadeMoedas = 6;
+    public float intervaloMoedas = 0.22f;
 
-    [Header("=== ATAQUE 3: GRITO SONORO ===")]
-    public float raioGrito = 5f;
-    public float forcaKnockback = 15f;
-    public float danoGrito = 1f;
+    [Header("=== ATAQUE 2: LEQUE DE CUBOS ===")]
+    public GameObject prefabProjetilCubo;
+    public int quantidadeCubosLeque = 7;
+    public float anguloLeque = 75f;
+    public float velocidadeCubo = 8f;
+
+    [Header("=== ATAQUE 3: CHUVA DE OURO ===")]
+    public GameObject prefabPoteOuro;
+    public int quantidadeChuvaOuro = 5;
+    public float larguraChuva = 7f;
+    public float alturaChuva = 7f;
+    public float tempoAvisoChuva = 0.8f;
+    public float velocidadeQueda = 12f;
 
     private Transform jogador;
     private Rigidbody2D rb;
-    private Vector2 posicaoOriginal;
 
     void Start()
     {
         vidaAtual = vidaMax;
         rb = GetComponent<Rigidbody2D>();
-        posicaoOriginal = transform.position;
+        posicaoFixa = transform.position;
 
-        // Auto tag e colliders
         gameObject.tag = "Enemy";
+        FixarBossNoLugar();
 
         GameObject p = GameObject.FindGameObjectWithTag("Player");
         if (p != null) jogador = p.transform;
@@ -65,14 +59,28 @@ public class BossIrmaoKingCube : MonoBehaviour
     {
         if (estaMorto) return;
 
-        // Sempre olhar na direção do jogador se não estiver a meio de um ataque de giro
+        if (manterNoLugar)
+        {
+            transform.position = new Vector3(posicaoFixa.x, posicaoFixa.y, transform.position.z);
+            if (rb != null) rb.linearVelocity = Vector2.zero;
+        }
+
         if (!estaAtacando && jogador != null)
         {
-            if (jogador.position.x > transform.position.x)
-                transform.localScale = new Vector3(-Mathf.Abs(transform.localScale.x), transform.localScale.y, transform.localScale.z);
-            else
-                transform.localScale = new Vector3(Mathf.Abs(transform.localScale.x), transform.localScale.y, transform.localScale.z);
+            VirarParaJogador();
         }
+    }
+
+    private void VirarParaJogador()
+    {
+        if (jogador == null) return;
+
+        float direcao = jogador.position.x >= transform.position.x ? 1f : -1f;
+        if (!spriteOlhaParaDireita) direcao *= -1f;
+
+        Vector3 escala = transform.localScale;
+        escala.x = Mathf.Abs(escala.x) * direcao;
+        transform.localScale = escala;
     }
 
     IEnumerator CicloBatalha()
@@ -86,163 +94,140 @@ public class BossIrmaoKingCube : MonoBehaviour
                 int ataqueAleatorio = Random.Range(1, 4);
 
                 if (ataqueAleatorio == 1)
-                {
-                    yield return StartCoroutine(ExecutarAtaqueGiro());
-                }
+                    yield return StartCoroutine(ExecutarRajadaMoedas());
                 else if (ataqueAleatorio == 2)
-                {
-                    yield return StartCoroutine(ExecutarAtaqueDinheiro());
-                }
+                    yield return StartCoroutine(ExecutarLequeCubos());
                 else
-                {
-                    yield return StartCoroutine(ExecutarAtaqueGrito());
-                }
+                    yield return StartCoroutine(ExecutarChuvaOuro());
             }
 
             yield return new WaitForSeconds(tempoEntreAtaques);
         }
     }
 
-    // --- 1º ATAQUE: GIRO/ROLAMENTO ---
-    IEnumerator ExecutarAtaqueGiro()
+    IEnumerator ExecutarRajadaMoedas()
     {
         estaAtacando = true;
-        Debug.Log("[Boss Irmão King Cube] Iniciando 1º Ataque: Giro de canto a canto!");
+        Debug.Log("[Boss Irmao King Cube] Rajada de moedas!");
 
-        // Guarda direção atual para avançar
-        float direcao = (jogador != null && jogador.position.x > transform.position.x) ? 1f : -1f;
-
-        float tempoDecorrido = 0f;
-        while (tempoDecorrido < tempoGiro)
-        {
-            if (rb != null)
-            {
-                rb.linearVelocity = new Vector2(direcao * velocidadeGiro, rb.linearVelocity.y);
-            }
-            else
-            {
-                transform.Translate(Vector3.right * direcao * velocidadeGiro * Time.deltaTime);
-            }
-
-            // Efeito visual de rotação
-            transform.Rotate(0, 0, -direcao * 360f * Time.deltaTime);
-
-            tempoDecorrido += Time.deltaTime;
-            yield return null;
-        }
-
-        // Restaura rotação e para
-        transform.rotation = Quaternion.identity;
-        if (rb != null) rb.linearVelocity = Vector2.zero;
-
-        estaAtacando = false;
-        yield return new WaitForSeconds(1f);
-    }
-
-    // --- 2º ATAQUE: ATIRAR DINHEIRO ---
-    IEnumerator ExecutarAtaqueDinheiro()
-    {
-        estaAtacando = true;
-        Debug.Log("[Boss Irmão King Cube] Iniciando 2º Ataque: Atirando Dinheiro!");
-
-        Transform spawnPoint = pontoDisparo != null ? pontoDisparo : transform;
+        Transform origem = pontoDisparo != null ? pontoDisparo : transform;
 
         for (int i = 0; i < quantidadeMoedas; i++)
         {
             if (jogador == null) break;
 
-            GameObject moeda = null;
-            if (prefabProjetilMoeda != null)
-            {
-                moeda = Instantiate(prefabProjetilMoeda, spawnPoint.position, Quaternion.identity);
-            }
-            else
-            {
-                // Fallback dinâmico: cria um projétil redondo amarelo
-                moeda = new GameObject("BossGoldProjectile");
-                moeda.transform.position = spawnPoint.position;
-                moeda.transform.localScale = new Vector3(0.25f, 0.25f, 1f);
-                SpriteRenderer sr = moeda.AddComponent<SpriteRenderer>();
-                sr.color = Color.yellow;
-                sr.sprite = Resources.GetBuiltinResource<Sprite>("Knob.psd");
-                CircleCollider2D cc = moeda.AddComponent<CircleCollider2D>();
-                cc.isTrigger = true;
-            }
+            Vector3 direcao = (jogador.position - origem.position).normalized;
+            direcao += new Vector3(Random.Range(-0.12f, 0.12f), Random.Range(-0.06f, 0.06f), 0f);
+            CriarProjetil(prefabProjetilMoeda, "BossGoldProjectile", origem.position, direcao.normalized, velocidadeMoeda, Color.yellow, 0.28f);
 
-            // Adiciona velocidade em linha reta
-            Vector3 direcaoTiro = (jogador.position - spawnPoint.position).normalized;
-            Rigidbody2D rbMoeda = moeda.GetComponent<Rigidbody2D>();
-            if (rbMoeda == null) rbMoeda = moeda.AddComponent<Rigidbody2D>();
-            rbMoeda.gravityScale = 0f;
-            rbMoeda.linearVelocity = direcaoTiro * velocidadeMoeda;
-
-            // Script de dano simples no projétil
-            BossProjectileDamage damageScript = moeda.GetComponent<BossProjectileDamage>();
-            if (damageScript == null) damageScript = moeda.AddComponent<BossProjectileDamage>();
-            damageScript.dano = 1;
-
-            Destroy(moeda, 4f);
-            yield return new WaitForSeconds(0.3f);
+            yield return new WaitForSeconds(intervaloMoedas);
         }
 
         estaAtacando = false;
     }
 
-    // --- 3º ATAQUE: GRITO SONORO ---
-    IEnumerator ExecutarAtaqueGrito()
+    IEnumerator ExecutarLequeCubos()
     {
         estaAtacando = true;
-        Debug.Log("[Boss Irmão King Cube] Iniciando 3º Ataque: Grito de Afastamento!");
+        Debug.Log("[Boss Irmao King Cube] Leque de cubos!");
 
-        // Criar um indicador visual dinâmico do grito (círculo vermelho expandindo)
-        GameObject indicador = new GameObject("ScreamWave");
-        indicador.transform.position = transform.position;
-        indicador.transform.localScale = Vector3.zero;
-        SpriteRenderer sr = indicador.AddComponent<SpriteRenderer>();
-        sr.color = new Color(1f, 0f, 0f, 0.4f); // Vermelho semi-transparente
-        sr.sprite = Resources.GetBuiltinResource<Sprite>("Knob.psd");
+        Transform origem = pontoDisparo != null ? pontoDisparo : transform;
+        Vector3 direcaoBase = jogador != null ? (jogador.position - origem.position).normalized : Vector3.left;
+        float anguloBase = Mathf.Atan2(direcaoBase.y, direcaoBase.x) * Mathf.Rad2Deg;
+        int quantidade = Mathf.Max(1, quantidadeCubosLeque);
 
-        float tempoExpansao = 0.8f;
-        float tempoDecorrido = 0f;
-
-        // Verifica colisão do grito com o jogador
-        bool jogadorAtingido = false;
-
-        while (tempoDecorrido < tempoExpansao)
+        for (int i = 0; i < quantidade; i++)
         {
-            tempoDecorrido += Time.deltaTime;
-            float escalaAtual = Mathf.Lerp(0f, raioGrito * 2f, tempoDecorrido / tempoExpansao);
-            indicador.transform.localScale = new Vector3(escalaAtual, escalaAtual, 1f);
-
-            if (jogador != null && !jogadorAtingido)
-            {
-                float dist = Vector2.Distance(transform.position, jogador.position);
-                if (dist <= (escalaAtual / 2f))
-                {
-                    jogadorAtingido = true;
-                    // Aplica dano e empurrão
-                    PlayerMovement pm = jogador.GetComponent<PlayerMovement>();
-                    if (pm != null)
-                    {
-                        pm.TakeDamage(danoGrito);
-                    }
-
-                    Rigidbody2D rbPlayer = jogador.GetComponent<Rigidbody2D>();
-                    if (rbPlayer != null)
-                    {
-                        Vector2 direcaoKnock = (jogador.position - transform.position).normalized;
-                        // Força horizontal com componente vertical para afastar no ar
-                        rbPlayer.linearVelocity = new Vector2(direcaoKnock.x * forcaKnockback, 8f);
-                    }
-                    Debug.Log("[Boss Irmão King Cube] Jogador atingido pelo grito!");
-                }
-            }
-
-            yield return null;
+            float t = quantidade == 1 ? 0.5f : i / (float)(quantidade - 1);
+            float angulo = anguloBase + Mathf.Lerp(-anguloLeque * 0.5f, anguloLeque * 0.5f, t);
+            Vector3 direcao = new Vector3(Mathf.Cos(angulo * Mathf.Deg2Rad), Mathf.Sin(angulo * Mathf.Deg2Rad), 0f);
+            CriarProjetil(prefabProjetilCubo, "BossCubeProjectile", origem.position, direcao, velocidadeCubo, Color.cyan, 0.35f);
         }
 
-        Destroy(indicador, 0.2f);
+        yield return new WaitForSeconds(0.45f);
         estaAtacando = false;
+    }
+
+    IEnumerator ExecutarChuvaOuro()
+    {
+        estaAtacando = true;
+        Debug.Log("[Boss Irmao King Cube] Chuva de ouro!");
+
+        float yBase = jogador != null ? jogador.position.y : transform.position.y;
+
+        for (int i = 0; i < quantidadeChuvaOuro; i++)
+        {
+            Vector3 alvo = jogador != null ? jogador.position : transform.position;
+            alvo.x += Random.Range(-larguraChuva * 0.5f, larguraChuva * 0.5f);
+            alvo.y = yBase;
+
+            GameObject aviso = CriarAviso(alvo, Color.yellow, 1.4f);
+            yield return new WaitForSeconds(tempoAvisoChuva);
+
+            Vector3 spawn = alvo + Vector3.up * alturaChuva;
+            CriarProjetil(prefabPoteOuro, "BossFallingGold", spawn, Vector3.down, velocidadeQueda, new Color(1f, 0.65f, 0f), 0.45f);
+
+            if (aviso != null) Destroy(aviso);
+            yield return new WaitForSeconds(0.18f);
+        }
+
+        estaAtacando = false;
+    }
+
+    private void FixarBossNoLugar()
+    {
+        if (rb == null) return;
+
+        rb.linearVelocity = Vector2.zero;
+        rb.angularVelocity = 0f;
+        rb.gravityScale = 0f;
+        rb.constraints = RigidbodyConstraints2D.FreezeAll;
+    }
+
+    private GameObject CriarProjetil(GameObject prefab, string nomeFallback, Vector3 posicao, Vector3 direcao, float velocidade, Color corFallback, float escalaFallback)
+    {
+        GameObject projetil = prefab != null ? Instantiate(prefab, posicao, Quaternion.identity) : CriarProjetilFallback(nomeFallback, posicao, corFallback, escalaFallback);
+
+        Rigidbody2D rbProjetil = projetil.GetComponent<Rigidbody2D>();
+        if (rbProjetil == null) rbProjetil = projetil.AddComponent<Rigidbody2D>();
+        rbProjetil.gravityScale = 0f;
+        rbProjetil.linearVelocity = direcao.normalized * velocidade;
+
+        BossProjectileDamage dano = projetil.GetComponent<BossProjectileDamage>();
+        if (dano == null) dano = projetil.AddComponent<BossProjectileDamage>();
+        dano.dano = 1;
+
+        Destroy(projetil, 5f);
+        return projetil;
+    }
+
+    private GameObject CriarProjetilFallback(string nome, Vector3 posicao, Color cor, float escala)
+    {
+        GameObject projetil = new GameObject(nome);
+        projetil.transform.position = posicao;
+        projetil.transform.localScale = new Vector3(escala, escala, 1f);
+
+        SpriteRenderer sr = projetil.AddComponent<SpriteRenderer>();
+        sr.color = cor;
+        sr.sprite = Resources.GetBuiltinResource<Sprite>("Knob.psd");
+
+        CircleCollider2D cc = projetil.AddComponent<CircleCollider2D>();
+        cc.isTrigger = true;
+
+        return projetil;
+    }
+
+    private GameObject CriarAviso(Vector3 posicao, Color cor, float escala)
+    {
+        GameObject aviso = new GameObject("AvisoAtaqueBoss");
+        aviso.transform.position = posicao;
+        aviso.transform.localScale = new Vector3(escala, escala, 1f);
+
+        SpriteRenderer sr = aviso.AddComponent<SpriteRenderer>();
+        sr.color = new Color(cor.r, cor.g, cor.b, 0.45f);
+        sr.sprite = Resources.GetBuiltinResource<Sprite>("Knob.psd");
+
+        return aviso;
     }
 
     public void TomarDano(float dano)
@@ -250,7 +235,7 @@ public class BossIrmaoKingCube : MonoBehaviour
         if (estaMorto) return;
 
         vidaAtual -= dano;
-        Debug.Log($"[Boss Irmão King Cube] Tomou {dano} de dano! Vida atual: {vidaAtual}/{vidaMax}");
+        Debug.Log($"[Boss Irmao King Cube] Tomou {dano} de dano! Vida atual: {vidaAtual}/{vidaMax}");
 
         if (vidaAtual <= 0)
         {
@@ -262,15 +247,13 @@ public class BossIrmaoKingCube : MonoBehaviour
     {
         estaMorto = true;
         StopAllCoroutines();
-        Debug.Log("[Boss Irmão King Cube] Derrotado com coragem!");
+        Debug.Log("[Boss Irmao King Cube] Derrotado com coragem!");
 
-        // Dropa bastantes Plets como recompensa
         GameDatabase.Instance.data.plets += 200;
-
+        TrocaCenaBoss.CarregarProximaCena();
         Destroy(gameObject, 1f);
     }
 
-    // Colisão direta simples
     private void OnCollisionEnter2D(Collision2D collision)
     {
         if (collision.gameObject.CompareTag("Player"))
@@ -284,7 +267,6 @@ public class BossIrmaoKingCube : MonoBehaviour
     }
 }
 
-// Pequena classe auxiliar para dano de projéteis criados dinamicamente
 public class BossProjectileDamage : MonoBehaviour
 {
     public int dano = 1;
